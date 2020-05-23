@@ -15,6 +15,7 @@ MAP.map_data = """
     ++ ++ -- -- -- -- ++ ++ -- -- --
     ++ -- -- -- -- -- -- -- -- -- --
 """
+MAP.camera_data = ['D3', 'D5', 'F3', 'F5', 'H3', 'H5']
 MAP.wall_data = """
     ·   · | ·   ·   ·   ·   ·   ·   ·   ·   · ,
           +                                   ,
@@ -34,7 +35,7 @@ MAP.wall_data = """
 
 class Config(ConfigBase):
     MAP_HAS_WALL = True
-    MAP_SIREN_TEMPLATE = ['Algerie', 'LaGalissonniere']
+    MAP_SIREN_TEMPLATE = ['Algerie', 'Vauquelin']
 
 
 class Campaign(CampaignBase):
