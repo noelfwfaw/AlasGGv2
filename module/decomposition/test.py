@@ -17,6 +17,8 @@ from module.map_detection.utils import *
 from module.map_detection.grid_predictor import GridPredictor
 from module.template.assets import *
 
+from module.ocr.ocr import Ocr
+
 DETECTING_AREA = (0, 0, 1280, 720)
 
 UI_MASK = Mask(file='./assets/mask/MASK_EQUIPMENT.png')
@@ -172,7 +174,6 @@ class test:
             draw.line([x1, y1, x2, y2], 'white')
 
         image.show()
-        # image.save('123.png')
 
     def load(self):
         file = self.file
@@ -231,7 +232,7 @@ class test:
         # print(testLines)
         self.draw(testLines)
 
-    def relative_crop(self, area, shape=None):
+    def crop(self, area, shape=None):
         """Crop image and rescale to target shape. Eliminate the effect of perspective.
 
         Args:
@@ -242,6 +243,19 @@ class test:
             np.ndarray: Shape (height, width, channel).
         """
         area = np.array(area)
+
+        image = crop(self.image, area=np.rint(area).astype(int))
+        if shape is not None:
+            # Follow the default re-sampling filter in pillow, which is BICUBIC.
+            image = cv2.resize(image, shape, interpolation=cv2.INTER_CUBIC)
+        return image
+
+    def template_crop(self, area, shape=None):
+        area = np.array(area)
+
+        center = np.array([(area[0]+area[2])/2, (area[1]+area[3])/2])
+        area = np.array([center[0] - 31, center[1] - 7, center[0] - 9, center[1] + 35])
+
         image = crop(self.image, area=np.rint(area).astype(int))
         if shape is not None:
             # Follow the default re-sampling filter in pillow, which is BICUBIC.
@@ -266,16 +280,70 @@ class test:
         for h in tuple_h:
             for v in tuple_v:
                 self.grid.append((v[0], h[0], v[1], h[1]))
+            
+        # print(len(self.grid))
 
-        # for i in self.grid:
-            # Image.fromarray(self.relative_crop(area=i)).show()
+        ocr = Ocr(self.grid[14])
+        print(ocr.ocr(Image.fromarray(self.crop(area=self.grid[14]))))
 
+        for i in self.grid:
+            # Image.fromarray(self.template_crop(area=i)).show()
+            if self.Predict_Box_T1(i):
+                Image.fromarray(self.crop(area=i)).show()
+                print(1)
+
+            if self.Predict_Box_T2(i):
+                Image.fromarray(self.crop(area=i)).show()
+                print(2)
+
+            if self.Predict_Box_T3(i):
+                Image.fromarray(self.crop(area=i)).show()
+                print(3)
+            
+            if self.Predict_Box_T4(i):
+                Image.fromarray(self.crop(area=i)).show()
+                print(4)
+
+    def Predict(self):
+        pass
+
+    def Predict_Box_T1(self, area):
+        
+        image = self.crop(area=area)
+        # print(TEMPLATE_BOX_T1.image.shape)
+        # print(TEMPLATE_BOX_T1.match_result(image))
+        return TEMPLATE_BOX_T1.match(image, similarity=0.9)
+
+    def Predict_Box_T2(self, area):
+
+        image = self.crop(area=area)
+        # print(TEMPLATE_BOX_T2.image.shape)
+        # print(TEMPLATE_BOX_T2.match_result(image))
+        return TEMPLATE_BOX_T2.match(image, similarity=0.9)
+
+    def Predict_Box_T3(self, area):
+
+        image = self.crop(area=area)
+        # print(TEMPLATE_BOX_T3.image.shape)
+        # print(TEMPLATE_BOX_T3.match_result(image))
+        return TEMPLATE_BOX_T3.match(image, similarity=0.9)
+
+    def Predict_Box_T4(self, area):
+
+        image = self.crop(area=area)
+        # print(TEMPLATE_BOX_T4.image.shape)
+        # print(TEMPLATE_BOX_T4.match_result(image))
+        return TEMPLATE_BOX_T4.match(image, similarity=0.9)
+    
+    
 
     def test(self):
         self.load()
         self.DivideGrid()
 
+
 if __name__ == "__main__":
-    t = test(AzurLaneConfig, r"module\decomposition\test4.png")
+    t = test(AzurLaneConfig, r"module\decomposition\test3.png")
 
     t.test()
+
