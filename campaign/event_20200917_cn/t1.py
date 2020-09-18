@@ -56,6 +56,7 @@ class Config:
     MAP_HAS_MOVABLE_ENEMY = True
     STAGE_ENTRANCE = ['blue']
 
+
 class Campaign(CampaignBase):
     MAP = MAP
 
