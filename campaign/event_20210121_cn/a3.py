@@ -77,8 +77,6 @@ class Campaign(CampaignBase):
             for grid in self.map:
                 grid.may_siren = True
 
-            self.fleet_2_push_forward()
-
         if self.clear_siren():
             return True
 
