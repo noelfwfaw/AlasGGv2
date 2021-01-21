@@ -71,10 +71,11 @@ class Campaign(CampaignBase):
         return super().get_map_clear_percentage() * 1.4
 
     def battle_0(self):
-        for grid in self.map:
-            grid.may_siren = True
+        if not self.map_is_clear_mode:
+            for grid in self.map:
+                grid.may_siren = True
 
-        self.fleet_2_push_forward()
+            self.fleet_2_push_forward()
 
         if self.clear_siren():
             return True
