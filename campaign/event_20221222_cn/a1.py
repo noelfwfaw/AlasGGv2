@@ -58,7 +58,7 @@ class Config:
     # ===== End of generated config =====
 
     INTERNAL_LINES_FIND_PEAKS_PARAMETERS = {
-        'height': (120, 255 - 33),
+        'height': (80, 255 - 33),
         'width': (1.5, 10),
         'prominence': 10,
         'distance': 35,
