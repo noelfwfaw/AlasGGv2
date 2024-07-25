@@ -60,6 +60,7 @@ class Config(ConfigBase):
     # ===== End of generated config =====
 
     STAGE_ENTRANCE = ['normal', '20240725']
+    MAP_HAS_MODE_SWITCH = True
     MAP_SWIPE_MULTIPLY = (1.089, 1.109)
     MAP_SWIPE_MULTIPLY_MINITOUCH = (1.053, 1.072)
     MAP_SWIPE_MULTIPLY_MAATOUCH = (1.022, 1.041)
