@@ -58,7 +58,9 @@ class Config:
     # ===== End of generated config =====
 
     MAP_CHAPTER_SWITCH_20241219 = True
+    MAP_HAS_MODE_SWITCH = True
     STAGE_ENTRANCE = ['half', '20240725']
+    STAGE_INCREASE_AB = True
     MAP_SIREN_HAS_BOSS_ICON_SMALL = True
     INTERNAL_LINES_FIND_PEAKS_PARAMETERS = {
         'height': (80, 255 - 33),
