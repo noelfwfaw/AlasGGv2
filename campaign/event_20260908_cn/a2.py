@@ -55,6 +55,8 @@ class Config(ConfigBase):
     MAP_HAS_MYSTERY = False
     # ===== End of generated config =====
 
+    MAP_FLEET_REVERSE_WAIT_INFO_BAR = True
+
 
 class Campaign(CampaignBase):
     MAP = MAP
