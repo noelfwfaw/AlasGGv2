@@ -22,7 +22,12 @@ class LogRes:
     gross acquisition per day.
     """
 
-    _tracked_groups = ('Cube', 'Gem', 'Oil', 'Coin')
+    # All dashboard groups feed the snapshot pipeline so every card can
+    # show its per-day gross-gain hint in the webui.
+    _tracked_groups = (
+        'Oil', 'Coin', 'Gem', 'Pt', 'Cube', 'ActionPoint',
+        'YellowCoin', 'PurpleCoin', 'Core', 'Medal', 'Merit', 'GuildCoin',
+    )
 
     def __init__(self, config):
         self.config = config

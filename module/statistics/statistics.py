@@ -32,8 +32,13 @@ from module.config.utils import filepath_config
 # Daily aggregates are kept forever.
 SNAPSHOT_RETENTION_DAYS = 30
 
-# Groups tracked by DailyIncome. Oil/Coin are optional; Cube/Gem are core.
-TRACKED_GROUPS = ('Cube', 'Gem', 'Oil', 'Coin')
+# Groups tracked by DailyIncome.
+# All dashboard groups get a per-day gross-gain hint; only Cube and Gem
+# also feed the weekly / monthly / yearly summary tables rendered below.
+TRACKED_GROUPS = (
+    'Oil', 'Coin', 'Gem', 'Pt', 'Cube', 'ActionPoint',
+    'YellowCoin', 'PurpleCoin', 'Core', 'Medal', 'Merit', 'GuildCoin',
+)
 
 # All calculations use Asia/Taipei (UTC+8) as day boundary.
 _TZ_TPEI = timezone(timedelta(hours=8))
