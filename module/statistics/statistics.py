@@ -75,6 +75,11 @@ class DailyIncome:
         self.filepath = _filepath_stats(config_name)
         self._data: dict = self._load()
 
+    def reload(self) -> None:
+        """Re-read JSON from disk. Call before reads to see fresh snapshots."""
+        with DailyIncome._lock:
+            self._data = self._load()
+
     # ------------------------------------------------------------------ #
     # File I/O
     # ------------------------------------------------------------------ #
