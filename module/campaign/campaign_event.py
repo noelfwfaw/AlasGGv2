@@ -114,7 +114,9 @@ class CampaignEvent(CampaignStatus):
             in: page_event or page_sp
         """
         limit = self.config.TaskBalancer_CoinLimit
-        coin = self.get_coin()
+        from module.config.deep import deep_get
+        coin = deep_get(self.config.data, 'Dashboard.Coin.Value')
+        logger.attr('Coin Count', coin)
         # Check Coin
         if coin == 0:
             # Avoid wrong/zero OCR result
