@@ -508,6 +508,8 @@ class AlasGUI(Frame):
                     ),
                     put_html('<hr class="hr-group">'),
                     put_scope("dashboard"),
+                    put_html('<hr class="hr-group">'),
+                    put_scope("income"),
                 ],
             )
             put_scope("log", [put_html("")])
@@ -540,6 +542,7 @@ class AlasGUI(Frame):
         self.task_handler.add(switch_dashboard.g(), 1, True)
         self.task_handler.add(self.alas_update_overview_task, 10, True)
         self.task_handler.add(self.alas_update_dashboard, 10, True)
+        self.task_handler.add(self.alas_update_income, 10, True)
         self.task_handler.add(log.put_log(self.alas), 0.25, True)
 
     def set_dashboard_display(self, b=False):
@@ -777,6 +780,100 @@ class AlasGUI(Frame):
                 self._update_dashboard(num=4, groups_to_display=['Oil', 'Coin', 'Gem', 'Pt'])
             elif self._log.display_dashboard:
                 self._update_dashboard()
+
+    def alas_update_income(self, _clear=False):
+        if not self.visible:
+            return
+        from module.statistics.statistics import DailyIncome
+        try:
+            di = DailyIncome(self.alas_config.config_name)
+        except Exception:
+            return
+
+        def _cell(val):
+            # Positive deltas are acquisition; show as "+N" when > 0
+            if val > 0:
+                return f"+{val}"
+            return str(val)
+
+        with use_scope("income", clear=_clear):
+            today_cube = di.aggregate('day', 'Cube')
+            today_gem = di.aggregate('day', 'Gem')
+            week_cube = di.aggregate('week', 'Cube')
+            week_gem = di.aggregate('week', 'Gem')
+            month_cube = di.aggregate('month', 'Cube')
+            month_gem = di.aggregate('month', 'Gem')
+            year_cube = di.aggregate('year', 'Cube')
+            year_gem = di.aggregate('year', 'Gem')
+
+            put_text(t("Gui.Overview.Income")).style(
+                "font-size: 1.25rem; margin: auto .5rem auto;"
+            )
+            put_table(
+                [
+                    [
+                        t("Gui.Overview.Today"),
+                        _cell(today_cube),
+                        _cell(today_gem),
+                    ],
+                    [
+                        t("Gui.Overview.ThisWeek"),
+                        _cell(week_cube),
+                        _cell(week_gem),
+                    ],
+                    [
+                        t("Gui.Overview.ThisMonth"),
+                        _cell(month_cube),
+                        _cell(month_gem),
+                    ],
+                    [
+                        t("Gui.Overview.ThisYear"),
+                        _cell(year_cube),
+                        _cell(year_gem),
+                    ],
+                ],
+                header=[
+                    "",
+                    t("Gui.Overview.Cube"),
+                    t("Gui.Overview.Gem"),
+                ],
+            )
+
+            # Recent-days history (last 30 days, newest first)
+            rows = di.get_recent_days(days=30, groups=('Cube', 'Gem'))
+            if any(r['Cube'] > 0 or r['Gem'] > 0 for r in rows):
+                # Trim leading fully-zero rows (inactive days)
+                # but keep a couple of leading zeros so the date range is visible
+                trimmed = []
+                leading_zeros = 0
+                for r in rows:
+                    if r['Cube'] == 0 and r['Gem'] == 0:
+                        leading_zeros += 1
+                    else:
+                        leading_zeros = 0
+                    trimmed.append(r)
+                # Keep up to 3 trailing zeros before cutting
+                while trimmed and trimmed[-1]['Cube'] == 0 and trimmed[-1]['Gem'] == 0 and leading_zeros > 3:
+                    trimmed.pop()
+                    leading_zeros -= 1
+
+                history_rows = [
+                    [r['date'], _cell(r['Cube']), _cell(r['Gem'])]
+                    for r in trimmed
+                ]
+                put_collapse(
+                    title=t("Gui.Overview.History"),
+                    content=[
+                        put_table(
+                            history_rows,
+                            header=[
+                                "",
+                                t("Gui.Overview.Cube"),
+                                t("Gui.Overview.Gem"),
+                            ],
+                        )
+                    ],
+                )
 
     @use_scope("content", clear=True)
     def alas_daemon_overview(self, task: str) -> None:

@@ -435,6 +435,12 @@ pre.rich-traceback-code {
     padding: 0 0 0;
     }
 
+#pywebio-scope-income {
+    font-weight: 400;
+    width: 100%;
+    display: block;
+}
+
 #pywebio-scope-log {
     line-height: 1.2;
     font-size: 0.85rem;

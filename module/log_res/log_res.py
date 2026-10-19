@@ -16,7 +16,13 @@ class LogRes:
     Usage:
         LogRes(config).Oil = 1234
         LogRes(config).ActionPoint = {'Value': 1000, 'Total': 1200}
+
+    Additionally, when group is one of ('Cube', 'Gem', 'Oil', 'Coin'), a
+    snapshot is appended to the daily-income tracker so the webui can show
+    gross acquisition per day.
     """
+
+    _tracked_groups = ('Cube', 'Gem', 'Oil', 'Coin')
 
     def __init__(self, config):
         self.config = config
@@ -51,3 +57,14 @@ class LogRes:
 
         for key, value in result.items():
             self.config.modified[f'{prefix}.{key}'] = value
+
+        # Snapshot for daily-income statistics (do not break main flow)
+        if group in self._tracked_groups and 'Value' in result:
+            try:
+                from module.statistics.statistics import DailyIncome
+                DailyIncome(self.config.config_name).snapshot(
+                    group, int(result['Value'])
+                )
+            except Exception:
+                # Never let stats failure affect the main dashboard path.
+                pass
