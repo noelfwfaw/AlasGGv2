@@ -794,6 +794,90 @@ class AlasGUI(Frame):
             x += 1
             if x >= _num:
                 break
+
+        # ── Income summary (今日/本周/本月/今年, Cube + Gem) ────────── #
+        if self._di:
+            try:
+                today_cube = self._di.aggregate('day', 'Cube')
+                today_gem  = self._di.aggregate('day', 'Gem')
+                week_cube  = self._di.aggregate('week', 'Cube')
+                week_gem   = self._di.aggregate('week', 'Gem')
+                month_cube = self._di.aggregate('month', 'Cube')
+                month_gem  = self._di.aggregate('month', 'Gem')
+                year_cube  = self._di.aggregate('year', 'Cube')
+                year_gem   = self._di.aggregate('year', 'Gem')
+
+                # Only render summary if ANY number is positive (no noise
+                # when stats file is empty / freshly created).
+                any_positive = any([
+                    today_cube, today_gem, week_cube, week_gem,
+                    month_cube, month_gem, year_cube, year_gem,
+                ])
+            except Exception:
+                any_positive = False
+
+            if any_positive:
+                with use_scope("income_summary", clear=True):
+                    put_html('<hr class="hr-group">')
+                    put_table(
+                        [
+                            [t("Gui.Overview.Today"),
+                             f"+{today_cube}", f"+{today_gem}"],
+                            [t("Gui.Overview.ThisWeek"),
+                             f"+{week_cube}", f"+{week_gem}"],
+                            [t("Gui.Overview.ThisMonth"),
+                             f"+{month_cube}", f"+{month_gem}"],
+                            [t("Gui.Overview.ThisYear"),
+                             f"+{year_cube}", f"+{year_gem}"],
+                        ],
+                        header=["",
+                                t("Gui.Overview.Cube"),
+                                t("Gui.Overview.Gem")],
+                    ).style("margin: .3rem 0 .3rem 0;")
+
+                # ── Daily history (30 days newest first, collapse) ──── #
+                with use_scope("income_history", clear=True):
+                    rows = self._di.get_recent_days(30, ('Cube', 'Gem'))
+                    # Drop trailing fully-zero rows so the visible range
+                    # corresponds to the user's active period, not the
+                    # 30-day mechanical tail. Keep at most 3 trailing
+                    # zeros so the date range still reads naturally.
+                    trimmed = []
+                    trailing = 0
+                    for r in rows:
+                        if r['Cube'] == 0 and r['Gem'] == 0:
+                            trailing += 1
+                        else:
+                            trailing = 0
+                        trimmed.append(r)
+                    while trimmed and trailing > 3:
+                        trimmed.pop()
+                        trailing -= 1
+
+                    body = [[r['date'],
+                             f"+{r['Cube']}" if r['Cube'] else "0",
+                             f"+{r['Gem']}"  if r['Gem']  else "0"]
+                            for r in trimmed]
+                    put_collapse(
+                        title=t("Gui.Overview.History"),
+                        content=[
+                            put_table(
+                                body,
+                                header=["",
+                                        t("Gui.Overview.Cube"),
+                                        t("Gui.Overview.Gem")],
+                            )
+                        ],
+                    ).style("margin-bottom: .5rem;")
+            else:
+                # Clear both scopes when data is all zero — avoids stale
+                # content surviving between a data day and a quiet day.
+                clear("income_summary")
+                clear("income_history")
+        else:
+            clear("income_summary")
+            clear("income_history")
+
         if self._log.first_display:
             self._log.first_display = False
 
