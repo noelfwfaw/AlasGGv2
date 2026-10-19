@@ -55,8 +55,17 @@ def _key_to_dt(key: str) -> datetime:
 
 
 def _filepath_stats(config_name: str) -> str:
-    """Path to the dedicated stats file for an instance."""
-    return filepath_config(f'{config_name}_stats')
+    """Path to the dedicated stats file for an instance.
+
+    Lives in ``config/stats/<name>.json`` so that the webui's instance
+    scanner (which globs ``config/*.json``) never picks it up as a fake
+    config instance.
+    """
+    return os.path.join(
+        os.path.dirname(filepath_config('template')),
+        'stats',
+        f'{config_name}.json',
+    )
 
 
 class DailyIncome:
@@ -99,6 +108,8 @@ class DailyIncome:
     def _save(self) -> None:
         import json
         try:
+            # Ensure subdir exists (created lazily on first snapshot).
+            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
             text = json.dumps(
                 self._data, indent=2, ensure_ascii=False, sort_keys=False
             )
