@@ -283,6 +283,10 @@ class Raid(MapOperation, RaidCombat, CampaignEvent):
         """
         logger.info('Combat preparation.')
 
+        # Power limit check
+        from module.gg_handler.gg_handler import GGHandler
+        GGHandler(config=self.config, device=self.device).power_limit('Raid')
+
         # No need, already waited in `raid_execute_once()`
         # if emotion_reduce:
         #     self.emotion.wait(fleet_index)
