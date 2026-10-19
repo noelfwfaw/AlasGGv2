@@ -177,6 +177,10 @@ class UI(InfoHandler):
         orientation_timer = Timer(5)
 
         timeout = Timer(10, count=20).start()
+        if self.config.SERVER == 'jp':
+            # JP server may stay on the loading screen for a long time on slow networks
+            # (e.g. after GG restarts the game), so wait longer before giving up.
+            timeout = Timer.from_seconds(60, speed=0.5).start()
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
