@@ -692,20 +692,18 @@ class AlasGUI(Frame):
         time_now = datetime.now().replace(microsecond=0)
 
         # Lazy init DailyIncome cache (per config instance, JSON load is one-time)
-        if not hasattr(self, '_di'):
-            self._di = None
-        if self._di is None:
-            try:
-                from module.statistics.statistics import DailyIncome
+        # When user switches to a different Alas instance, alas_config.config_name
+        # changes but self._di still points at the previous instance's stats file —
+        # detect that and rebuild.
+        try:
+            from module.statistics.statistics import DailyIncome
+            di_name = getattr(self._di, 'config_name', None) if getattr(self, '_di', None) else None
+            if di_name != self.alas_config.config_name:
                 self._di = DailyIncome(self.alas_config.config_name)
-            except Exception:
-                self._di = False  # disabled
-        elif self._di:
-            # Reload before each 10-second tick to pick up fresh snapshots
-            try:
+            else:
                 self._di.reload()
-            except Exception:
-                pass
+        except Exception:
+            self._di = False  # disabled
 
         for group_name in _arg_group:
             group = deep_get(d=self.alas_config.data, keys=f'Dashboard.{group_name}')
