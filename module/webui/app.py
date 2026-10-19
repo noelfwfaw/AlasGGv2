@@ -700,6 +700,12 @@ class AlasGUI(Frame):
                 self._di = DailyIncome(self.alas_config.config_name)
             except Exception:
                 self._di = False  # disabled
+        elif self._di:
+            # Reload before each 10-second tick to pick up fresh snapshots
+            try:
+                self._di.reload()
+            except Exception:
+                pass
 
         for group_name in _arg_group:
             group = deep_get(d=self.alas_config.data, keys=f'Dashboard.{group_name}')
