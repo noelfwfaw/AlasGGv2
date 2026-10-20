@@ -75,6 +75,11 @@ class LoginHandler(UI):
                     self.device.click(LOGIN_CHECK)
                     logger.info('Login success')
                     login_success = True
+                    # Reset stuck timers now that we've crossed the login threshold.
+                    # Network flaky regions (JP) may have burnt most of the 180s
+                    # stuck_timer_long on manjuu/waiting before login_success; the
+                    # post-login main-page loading deserves a fresh timeout window.
+                    self.device.stuck_record_clear()
             if self.appear(ANDROID_NO_RESPOND, offset=(30, 30), interval=5):
                 logger.warning('Emulator no respond')
                 self.device.click_record_add(ANDROID_NO_RESPOND)
