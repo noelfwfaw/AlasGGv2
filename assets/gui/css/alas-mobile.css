@@ -39,10 +39,30 @@
 #pywebio-scope-dashboard {
     font-weight: 400;
     width: 100%;
-    display: grid;
-    grid-auto-flow: row;
-    grid-template-columns: repeat(auto-fit,minmax(6rem,1fr));
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
     overflow: hidden;
+}
+
+/* Narrow screen: cards keep their grid, the income summary moves to its own
+   full-width line under the cards. */
+#pywebio-scope-dashboard_cards {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+    align-content: flex-start;
+    gap: 0.25rem;
+}
+
+#pywebio-scope-dashboard > #pywebio-scope-income_summary {
+    flex: 1 1 100%;
+    max-width: none;
+}
+
+/* Statistics page: narrow screen shows one month detail per row. */
+#pywebio-scope-statistics > [id^="pywebio-scope-statistics_year_"] {
+    grid-template-columns: 1fr;
 }
 
 #pywebio-scope-_groups {

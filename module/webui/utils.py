@@ -370,6 +370,9 @@ def filepath_icon(filename):
 def add_css(filepath):
     with open(filepath, "r") as f:
         css = f.read().replace("\n", "")
+        # Escape single quotes so CSS comment apostrophes like table's / year's
+        # don't break the JS single-quoted string that wraps this CSS block.
+        css = css.replace("\\", "\\\\").replace("'", "\\'")
         run_js(f"""$('head').append('<style>{css}</style>')""")
 
 
