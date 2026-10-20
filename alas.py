@@ -27,6 +27,10 @@ class AzurLaneAutoScript:
         # Failure count of tasks
         # Key: str, task name, value: int, failure count
         self.failure_record = {}
+        # Whether the JP-server game restart has been attempted this session.
+        # JP-only recovery for slow game loading; restart at most once per session
+        # so it never enters a restart loop.
+        self._jp_game_restart_attempted = False
 
     @cached_property
     def config(self):
@@ -95,6 +99,16 @@ class AzurLaneAutoScript:
             logger.info('Game server may be under maintenance or network may be broken, check server status now')
             self.checker.check_now()
             if self.checker.is_available():
+                # JP-only: on slow networks the game may fail to finish loading,
+                # leaving ALAS unable to recognize any page. Restart the game once
+                # per session as a recovery attempt. The flag blocks further restarts,
+                # so this never enters a restart loop; if the restart doesn't fix it,
+                # the next GamePageUnknownError falls through to the crash path below.
+                if self.config.SERVER == 'jp' and not self._jp_game_restart_attempted:
+                    self._jp_game_restart_attempted = True
+                    logger.warning('JP server: failed to enter game (unknown ui page), restarting game to retry once')
+                    self.config.task_call('Restart')
+                    return False
                 logger.critical('Game page unknown')
                 self.save_error_log()
                 handle_notify(
