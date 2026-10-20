@@ -309,6 +309,10 @@
     "GameManager": {
       "name": "Game Manager(WIP)",
       "help": ""
+    },
+    "Statistics": {
+      "name": "Statistics",
+      "help": "View daily Cube/Gem gains grouped by month and year"
     }
   },
   "Scheduler": {
@@ -3357,6 +3361,13 @@
       "Pending": "Pending",
       "Waiting": "Waiting",
       "NoTask": "No Task"
+    },
+    "Statistics": {
+      "NoData": "No data",
+      "Year": "Year",
+      "Month": "Month",
+      "Date": "Date",
+      "Total": "Total"
     },
     "AddAlas": {
       "PopupTitle": "Add new config",

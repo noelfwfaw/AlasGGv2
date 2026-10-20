@@ -309,6 +309,10 @@
     "GameManager": {
       "name": "Game Manager(WIP)",
       "help": ""
+    },
+    "Statistics": {
+      "name": "統計",
+      "help": "魔方とダイヤの日別獲得量を月・年単位で表示"
     }
   },
   "Scheduler": {
@@ -3357,6 +3361,13 @@
       "Pending": "隊列中",
       "Waiting": "Waiting",
       "NoTask": "No Task"
+    },
+    "Statistics": {
+      "NoData": "データなし",
+      "Year": "年間統計",
+      "Month": "月",
+      "Date": "日付",
+      "Total": "合計"
     },
     "AddAlas": {
       "PopupTitle": "新しいコンフィグを追加",
