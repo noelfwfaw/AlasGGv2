@@ -570,6 +570,10 @@ class InfoHandler(ModuleBase):
             else:
                 if timer.reached():
                     logger.info(f'Manjuu disappeared')
+                    # Clear stuck timers and detect_record so that any extra
+                    # time spent waiting here does not later cause a false
+                    # GameStuckError once normal page transitions resume.
+                    self.device.stuck_record_clear()
                     break
     
     def handle_manjuu(self):
