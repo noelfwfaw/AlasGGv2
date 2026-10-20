@@ -254,6 +254,10 @@
       "name": "CL1 Leveling",
       "help": ""
     },
+    "OpsiCheckLeveling": {
+      "name": "経験値チェック",
+      "help": ""
+    },
     "OpsiCrossMonth": {
       "name": "Cross Month Daily",
       "help": "    ALAS will enter OpSi 10min before OpSi reset, wait until OpSi reset but not exit OpSi. Then do the daily, obscure, abyssal and meowfficer farming to get extra gold plates. When running dailies, settings in task \"OpSiDaily\" are used, the rest function are the same.\n    IMPORTANT: Please do not touch the game while ALAS is waiting for OpSi reset."
@@ -2648,6 +2652,23 @@
       "0": "0",
       "44": "44",
       "22": "22"
+    }
+  },
+  "OpsiCheckLeveling": {
+    "_info": {
+      "name": "経験値チェック",
+      "help": "出撃艦隊の全艦が目標レベルに必要な経験値を獲得したかチェックします。\n条件を満たしていればプッシュ通知を送信します。\n先にエラー通知設定を行ってください。"
+    },
+    "TargetLevel": {
+      "name": "全艦がレベルXになる経験値を獲得したら通知",
+      "help": "0は無制限"
+    },
+    "LastRun": {
+      "name": "前回チェック時間",
+      "help": "タスクの重複実行を防ぐために前回のチェック時間を記録します。チェック間隔は1日で、この値は自動記録されるため通常変更する必要はありません"
+    },
+    "DelayAfterFull": {
+      "name": "目標レベル到達後にタスクを延期"
     }
   },
   "IslandProduction": {

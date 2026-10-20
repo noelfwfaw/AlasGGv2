@@ -254,6 +254,10 @@
       "name": "CL1 Leveling",
       "help": ""
     },
+    "OpsiCheckLeveling": {
+      "name": "Daily Leveling Check",
+      "help": ""
+    },
     "OpsiCrossMonth": {
       "name": "Cross Month Daily",
       "help": "    ALAS will enter OpSi 10min before OpSi reset, wait until OpSi reset but not exit OpSi. Then do the daily, obscure, abyssal and meowfficer farming to get extra gold plates. When running dailies, settings in task \"OpSiDaily\" are used, the rest function are the same.\n    IMPORTANT: Please do not touch the game while ALAS is waiting for OpSi reset."
@@ -2648,6 +2652,23 @@
       "0": "No Specification",
       "44": "44 | West Continental Shelf D",
       "22": "22 | NA Ocean SW Sector B"
+    }
+  },
+  "OpsiCheckLeveling": {
+    "_info": {
+      "name": "Daily Leveling Check",
+      "help": "Check if all ships in current fleet have received enough experience to reach the target level.\nIf yes, Alas will push a message.\nError notify config should be set first."
+    },
+    "TargetLevel": {
+      "name": "Push when all ships received enough exp to reach target level X",
+      "help": "0 means no limit"
+    },
+    "LastRun": {
+      "name": "Last Check Time",
+      "help": "Automatically updated with the last check time, generally does not need to be modified"
+    },
+    "DelayAfterFull": {
+      "name": "Delay task when target level reached"
     }
   },
   "IslandProduction": {
