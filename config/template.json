@@ -1987,6 +1987,33 @@
       "Fleet": 1,
       "Submarine": false
     },
+    "OpsiCheckLeveling": {
+      "TargetLevel": 0,
+      "LastRun": "2020-01-01 00:00:00",
+      "DelayAfterFull": false
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "OpsiCheckLeveling": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "OpsiCheckLeveling",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "OpsiCheckLeveling": {
+      "TargetLevel": 0,
+      "LastRun": "2020-01-01 00:00:00",
+      "DelayAfterFull": false
+    },
+    "OpsiFleet": {
+      "Fleet": 1,
+      "Submarine": false
+    },
     "Storage": {
       "Storage": {}
     }
@@ -2196,6 +2223,11 @@
       "Raid": 16500,
       "Ash": 16500
     },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Statistics": {
     "Storage": {
       "Storage": {}
     }
