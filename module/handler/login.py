@@ -59,10 +59,20 @@ class LoginHandler(UI):
             else:
                 confirm_timer.reset()
 
+            # Manjuu loading, mostly on jp when network is unstable.
+            # Wait it out instead of clicking. Clicks call stuck_record_clear(),
+            # which would keep resetting the stuck timer, so a GameStuckError
+            # (and the Restart that follows) could never be raised.
+            if self.handle_manjuu():
+                continue
+
             # Login
             if self.match_template_color(LOGIN_CHECK, offset=(30, 30), interval=5):
-                self.device.click(LOGIN_CHECK)
+                # Only click when login has not succeeded yet. Afterwards the
+                # loading screen may falsely match LOGIN_CHECK and every click
+                # would reset the stuck timer, so the game hangs forever.
                 if not login_success:
+                    self.device.click(LOGIN_CHECK)
                     logger.info('Login success')
                     login_success = True
             if self.appear(ANDROID_NO_RESPOND, offset=(30, 30), interval=5):
