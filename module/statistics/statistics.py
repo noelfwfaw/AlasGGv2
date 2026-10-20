@@ -13,8 +13,9 @@ Design principles:
 
 File layout (config/<instance>_stats.json):
 {
-    "snapshots": [ {"ts": "<ISO>", "group": "<str>", "value": <int>}, ... ],
-    "daily":      { "<YYYY-MM-DD>": {"Cube": <int>, "Gem": <int>}, ... },
+    "snapshots":   [ {"ts": "<ISO>", "group": "<str>", "value": <int>}, ... ],
+    "daily":       { "<YYYY-MM-DD>": {"Cube": <int>, "Gem": <int>}, ... },
+    "daily_total": { "<YYYY-MM-DD>": {"Cube": <int>, "Gem": <int>}, ... },
     "last_update": "<ISO>"
 }
 """
@@ -39,6 +40,10 @@ TRACKED_GROUPS = (
     'Oil', 'Coin', 'Gem', 'Pt', 'Cube', 'ActionPoint',
     'YellowCoin', 'PurpleCoin', 'Core', 'Medal', 'Merit', 'GuildCoin',
 )
+
+# Groups whose absolute total (latest value seen that day) is recorded once
+# per day, kept forever. Used to chart long-term stock of premium currency.
+TOTAL_TRACKED_GROUPS = ('Cube', 'Gem')
 
 # All calculations use Asia/Taipei (UTC+8) as day boundary.
 _TZ_TPEI = timezone(timedelta(hours=8))
@@ -99,16 +104,35 @@ class DailyIncome:
     # ------------------------------------------------------------------ #
     def _load(self) -> dict:
         if not os.path.exists(self.filepath):
-            return {'snapshots': [], 'daily': {}, 'last_update': None}
+            return {
+                'snapshots': [],
+                'daily': {},
+                'daily_total': {},
+                'last_update': None,
+            }
         content = atomic_read_bytes(self.filepath)
         if not content:
-            return {'snapshots': [], 'daily': {}, 'last_update': None}
+            return {
+                'snapshots': [],
+                'daily': {},
+                'daily_total': {},
+                'last_update': None,
+            }
         try:
             import json
-            return json.loads(content.decode('utf-8'))
+            data = json.loads(content.decode('utf-8'))
+            # Older files may lack daily_total; backfill the key so callers
+            # can assume its presence.
+            data.setdefault('daily_total', {})
+            return data
         except Exception as e:
             logger.warning(f'DailyIncome: failed to parse {self.filepath}: {e}')
-            return {'snapshots': [], 'daily': {}, 'last_update': None}
+            return {
+                'snapshots': [],
+                'daily': {},
+                'daily_total': {},
+                'last_update': None,
+            }
 
     def _save(self) -> None:
         import json
@@ -148,6 +172,11 @@ class DailyIncome:
             })
             today = _today_key()
             self._recompute_daily(today)
+            # Record end-of-day absolute total for premium currencies.
+            # Latest snapshot of the day wins, so the value converges to the
+            # last reading before midnight.
+            if group in TOTAL_TRACKED_GROUPS:
+                self._data['daily_total'].setdefault(today, {})[group] = value
             self._prune_snapshots()
             self._data['last_update'] = _now_iso()
             self._save()
@@ -306,3 +335,14 @@ class DailyIncome:
             for key, value in self._data.get('daily', {}).items()
             if key.startswith(prefix)
         )
+
+    # ------------------------------------------------------------------ #
+    # Absolute daily totals (Cube / Gem stock at end of day)
+    # ------------------------------------------------------------------ #
+    def get_daily_total(self, date_key: str, group: str) -> Optional[int]:
+        """Latest absolute value of `group` recorded on `date_key`, or None."""
+        value = self._data.get('daily_total', {}).get(date_key, {}).get(group)
+        return int(value) if value is not None else None
+
+    def get_today_total(self, group: str) -> Optional[int]:
+        return self.get_daily_total(_today_key(), group)
