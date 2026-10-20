@@ -37,7 +37,7 @@ GUI 右上角 Overview 页面内，默认折叠显示 Oil/Coin/Gem/Pt 四张卡�
 |------|---------|
 | Oil / Coin | `campaign/campaign_status.py` |
 | Pt | `campaign/campaign_status.py` |
-| Cube | `gacha/gacha_reward.py` |
+| Cube | `gacha/gacha_reward.py`（建造前 / 建造后）· `commission/commission.py`（领取委托奖励后） |
 | Gem | `shop/shop_status.py` |
 | ActionPoint | `os_handler/action_point.py` |
 | YellowCoin / PurpleCoin | `os_handler/os_status.py` |
@@ -62,6 +62,7 @@ GUI 右上角 Overview 页面内，默认折叠显示 Oil/Coin/Gem/Pt 四张卡�
 - **原始快照**保留 30 天（`SNAPSHOT_RETENTION_DAYS`）
 - **每日聚合**永久保留
 - 写入失败 try/except 保护，不影响主流程
+- **Cube 额外快照节点**：魔方数量仅在建造页可读取，除建造流程（建造前 / 建造后各记一次）外，领取委托奖励后也会绕到建造页补记一次，避免当日非建造时段获得的魔方被漏计
 
 **GUI 展示**（嵌在仪表盘内，不独立面板）：
 - 每个资源卡片下方那行自动追加 `| +N` 提示（今日 gross gain）
