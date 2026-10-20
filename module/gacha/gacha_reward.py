@@ -303,6 +303,11 @@ class RewardGacha(GachaUI, Retirement):
         # OCR Gold and Cubes
         self.build_coin_count = OCR_COIN.ocr(self.device.image)
         self.build_cube_count = OCR_BUILD_CUBE_COUNT.ocr(self.device.image)
+        # Record the pre-build Cube count so the daily-gain tracker captures the
+        # accumulation since last build. The only other snapshot (gacha_calculate)
+        # records the post-build remaining value, which masks the day's acquisition
+        # by the cubes just spent.
+        LogRes(self.config).Cube = self.build_cube_count
 
         # Transition to appropriate target construction pool
         # Returns appropriate costs for gacha as well
