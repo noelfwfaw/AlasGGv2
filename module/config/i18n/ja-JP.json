@@ -3388,7 +3388,9 @@
       "Year": "年間統計",
       "Month": "月",
       "Date": "日付",
-      "Total": "合計"
+      "Total": "合計",
+      "CubeTotal": "魔方在庫",
+      "GemTotal": "ダイヤ在庫"
     },
     "AddAlas": {
       "PopupTitle": "新しいコンフィグを追加",

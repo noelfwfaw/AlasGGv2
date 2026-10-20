@@ -3389,7 +3389,9 @@
       "Year": "Year",
       "Month": "Month",
       "Date": "Date",
-      "Total": "Total"
+      "Total": "Total",
+      "CubeTotal": "Cube Stock",
+      "GemTotal": "Gem Stock"
     },
     "AddAlas": {
       "PopupTitle": "Add new config",

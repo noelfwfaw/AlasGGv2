@@ -572,6 +572,11 @@ class AlasGUI(Frame):
             def fmt(value):
                 return f"+{value}" if value else "0"
 
+            def fmt_total(value):
+                # None means no snapshot recorded that day; render as dash
+                # instead of 0 to distinguish "no data" from "actual zero".
+                return str(value) if value is not None else "-"
+
             groups = ('Cube', 'Gem')
 
             # Summary: today / this week / this month / this year
@@ -632,6 +637,8 @@ class AlasGUI(Frame):
                                 [date_key]
                                 + [fmt(self._di.get_daily(date_key, g))
                                    for g in groups]
+                                + [fmt_total(self._di.get_daily_total(date_key, g))
+                                   for g in groups]
                             )
                         month_title = f"{year}-{month:02d}  " + "  ".join(
                             f"{g} {fmt(self._di.month_total(year, month, g))}"
@@ -644,7 +651,9 @@ class AlasGUI(Frame):
                                     day_rows,
                                     header=[t("Gui.Statistics.Date"),
                                             t("Gui.Overview.Cube"),
-                                            t("Gui.Overview.Gem")],
+                                            t("Gui.Overview.Gem"),
+                                            t("Gui.Statistics.CubeTotal"),
+                                            t("Gui.Statistics.GemTotal")],
                                 )
                             ],
                             open=True,

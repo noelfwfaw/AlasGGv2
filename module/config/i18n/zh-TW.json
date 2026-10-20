@@ -3388,7 +3388,9 @@
       "Year": "年度統計",
       "Month": "月份",
       "Date": "日期",
-      "Total": "合計"
+      "Total": "合計",
+      "CubeTotal": "魔方總數",
+      "GemTotal": "鑽石總數"
     },
     "AddAlas": {
       "PopupTitle": "添加新的設定",
