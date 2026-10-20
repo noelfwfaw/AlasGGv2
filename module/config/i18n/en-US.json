@@ -2668,7 +2668,8 @@
       "help": "Automatically updated with the last check time, generally does not need to be modified"
     },
     "DelayAfterFull": {
-      "name": "Delay task when target level reached"
+      "name": "Delay task when target level reached",
+      "help": "OpsiCheckLeveling.DelayAfterFull.help"
     }
   },
   "IslandProduction": {
@@ -3371,17 +3372,15 @@
       "Medal": "Medal",
       "Core": "Core Data",
       "GuildCoin": "Guild Coin",
-      "Income": "Daily Income",
-      "Today": "Today",
-      "ThisWeek": "This Week",
-      "ThisMonth": "This Month",
-      "ThisYear": "This Year",
-      "History": "History",
       "Log": "Log",
       "Running": "Running",
       "Pending": "Pending",
       "Waiting": "Waiting",
-      "NoTask": "No Task"
+      "NoTask": "No Task",
+      "Today": "Today",
+      "ThisWeek": "This Week",
+      "ThisMonth": "This Month",
+      "ThisYear": "This Year"
     },
     "Statistics": {
       "NoData": "No data",
