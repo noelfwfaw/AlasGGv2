@@ -276,6 +276,13 @@ class AlasGUI(Frame):
             else:
                 _onclick = self.alas_set_group
 
+            def task_onclick(task):
+                # The statistics page lives inside the Tool group but is not a
+                # config task, so it is routed to its own handler.
+                if task == "Statistics":
+                    return self.alas_statistics
+                return _onclick
+
             if task_data.get("menu") == "collapse":
                 task_btn_list = [
                     put_buttons(
@@ -286,7 +293,7 @@ class AlasGUI(Frame):
                                 "color": "menu",
                             }
                         ],
-                        onclick=_onclick,
+                        onclick=task_onclick(task),
                     ).style(f"--menu-{task}--")
                     for task in task_data.get("tasks", [])
                 ]
@@ -309,7 +316,7 @@ class AlasGUI(Frame):
                                 "color": "menu",
                             }
                         ],
-                        onclick=_onclick,
+                        onclick=task_onclick(task),
                     ).style(f"--menu-{task}--").style(f"padding-left: 0.75rem")
 
         self.alas_overview()
@@ -541,6 +548,106 @@ class AlasGUI(Frame):
         self.task_handler.add(self.alas_update_overview_task, 10, True)
         self.task_handler.add(self.alas_update_dashboard, 10, True)
         self.task_handler.add(log.put_log(self.alas), 0.25, True)
+
+    @use_scope("content", clear=True)
+    def alas_statistics(self, task="Statistics") -> None:
+        """
+        Detailed Cube / Gem income history, grouped by year -> month -> day.
+        """
+        self.init_menu(name=task)
+        self.set_title(t(f"Task.{task}.name"))
+        put_scope("statistics")
+
+        with use_scope("statistics"):
+            try:
+                from module.statistics.statistics import DailyIncome
+                self._di = DailyIncome(self.alas_config.config_name)
+            except Exception:
+                self._di = False
+
+            if not self._di:
+                put_text(t("Gui.Statistics.NoData"))
+                return
+
+            def fmt(value):
+                return f"+{value}" if value else "0"
+
+            groups = ('Cube', 'Gem')
+
+            # Summary: today / this week / this month / this year
+            summary_rows = []
+            for period, key in (('day', 'Today'), ('week', 'ThisWeek'),
+                                ('month', 'ThisMonth'), ('year', 'ThisYear')):
+                summary_rows.append(
+                    [t(f"Gui.Overview.{key}")]
+                    + [fmt(self._di.aggregate(period, g)) for g in groups]
+                )
+            put_table(
+                summary_rows,
+                header=["", t("Gui.Overview.Cube"), t("Gui.Overview.Gem")],
+            ).style("margin: .3rem 0 .3rem 0;")
+
+            years = self._di.years()
+            if not years:
+                put_text(t("Gui.Statistics.NoData"))
+                return
+
+            # Detailed history: year -> month -> day
+            for year in years:
+                year_sum = [self._di.year_total(year, g) for g in groups]
+                months = self._di.months_of_year(year)
+
+                # Month totals of this year
+                month_rows = []
+                for month in months:
+                    month_rows.append(
+                        [f"{year}-{month:02d}"]
+                        + [fmt(self._di.month_total(year, month, g)) for g in groups]
+                    )
+                month_rows.append(
+                    [t("Gui.Statistics.Total")] + [fmt(v) for v in year_sum]
+                )
+
+                contents = [
+                    put_table(
+                        month_rows,
+                        header=[t("Gui.Statistics.Month"),
+                                t("Gui.Overview.Cube"),
+                                t("Gui.Overview.Gem")],
+                    )
+                ]
+
+                # Daily detail of each month
+                for month in months:
+                    day_rows = []
+                    for date_key in self._di.days_of_month(year, month):
+                        day_rows.append(
+                            [date_key]
+                            + [fmt(self._di.get_daily(date_key, g)) for g in groups]
+                        )
+                    month_title = f"{year}-{month:02d}  " + "  ".join(
+                        f"{g} {fmt(self._di.month_total(year, month, g))}"
+                        for g in groups
+                    )
+                    contents.append(
+                        put_collapse(
+                            title=month_title,
+                            content=[
+                                put_table(
+                                    day_rows,
+                                    header=[t("Gui.Statistics.Date"),
+                                            t("Gui.Overview.Cube"),
+                                            t("Gui.Overview.Gem")],
+                                )
+                            ],
+                        )
+                    )
+
+                put_html('<hr class="hr-group">')
+                year_title = f"{year} {t('Gui.Statistics.Year')}  " + "  ".join(
+                    f"{g} {fmt(v)}" for g, v in zip(groups, year_sum)
+                )
+                put_collapse(title=year_title, content=contents)
 
     def set_dashboard_display(self, b=False):
         self._log.set_dashboard_display(b)
@@ -832,49 +939,12 @@ class AlasGUI(Frame):
                                 t("Gui.Overview.Cube"),
                                 t("Gui.Overview.Gem")],
                     ).style("margin: .3rem 0 .3rem 0;")
-
-                # ── Daily history (30 days newest first, collapse) ──── #
-                with use_scope("income_history", clear=True):
-                    rows = self._di.get_recent_days(30, ('Cube', 'Gem'))
-                    # Drop trailing fully-zero rows so the visible range
-                    # corresponds to the user's active period, not the
-                    # 30-day mechanical tail. Keep at most 3 trailing
-                    # zeros so the date range still reads naturally.
-                    trimmed = []
-                    trailing = 0
-                    for r in rows:
-                        if r['Cube'] == 0 and r['Gem'] == 0:
-                            trailing += 1
-                        else:
-                            trailing = 0
-                        trimmed.append(r)
-                    while trimmed and trailing > 3:
-                        trimmed.pop()
-                        trailing -= 1
-
-                    body = [[r['date'],
-                             f"+{r['Cube']}" if r['Cube'] else "0",
-                             f"+{r['Gem']}"  if r['Gem']  else "0"]
-                            for r in trimmed]
-                    put_collapse(
-                        title=t("Gui.Overview.History"),
-                        content=[
-                            put_table(
-                                body,
-                                header=["",
-                                        t("Gui.Overview.Cube"),
-                                        t("Gui.Overview.Gem")],
-                            )
-                        ],
-                    ).style("margin-bottom: .5rem;")
             else:
-                # Clear both scopes when data is all zero — avoids stale
+                # Clear summary scope when data is all zero — avoids stale
                 # content surviving between a data day and a quiet day.
                 clear("income_summary")
-                clear("income_history")
         else:
             clear("income_summary")
-            clear("income_history")
 
         if self._log.first_display:
             self._log.first_display = False

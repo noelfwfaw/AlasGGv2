@@ -73,6 +73,17 @@ Overview:
   Pending:
   Waiting:
   NoTask:
+  Today:
+  ThisWeek:
+  ThisMonth:
+  ThisYear:
+
+Statistics:
+  NoData:
+  Year:
+  Month:
+  Date:
+  Total:
 
 AddAlas:
   PopupTitle:

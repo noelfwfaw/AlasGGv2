@@ -266,19 +266,43 @@ class DailyIncome:
             return None
         return max(cands, key=lambda x: x['ts'])
 
-    def get_recent_days(self, days: int = 30, groups=None) -> list:
-        """
-        Return a list of dicts for the most recent N days, newest first.
-        Each dict: {'date': 'YYYY-MM-DD', 'Cube': int, 'Gem': int, ...}.
-        """
-        if groups is None:
-            groups = ('Cube', 'Gem')
-        today_dt = _key_to_dt(_today_key())
-        result = []
-        for i in range(days):
-            d = (today_dt - timedelta(days=i)).strftime('%Y-%m-%d')
-            row = {'date': d}
-            for g in groups:
-                row[g] = self.get_daily(d, g)
-            result.append(row)
-        return result
+    def years(self) -> list:
+        """Years that have any daily data, newest first, e.g. [2026, 2025]."""
+        return sorted(
+            {int(key[:4]) for key in self._data.get('daily', {})},
+            reverse=True,
+        )
+
+    def months_of_year(self, year: int) -> list:
+        """Months (int, ascending) that have data within `year`, e.g. [9, 10]."""
+        prefix = f'{year:04d}-'
+        return sorted(
+            {int(key[5:7]) for key in self._data.get('daily', {})
+             if key.startswith(prefix)}
+        )
+
+    def days_of_month(self, year: int, month: int) -> list:
+        """Date keys (ascending) that have data within the month."""
+        prefix = f'{year:04d}-{month:02d}-'
+        return sorted(
+            key for key in self._data.get('daily', {})
+            if key.startswith(prefix)
+        )
+
+    def month_total(self, year: int, month: int, group: str) -> int:
+        """Sum of daily gross gains of `group` within `year`-`month`."""
+        prefix = f'{year:04d}-{month:02d}-'
+        return sum(
+            int(value.get(group, 0))
+            for key, value in self._data.get('daily', {}).items()
+            if key.startswith(prefix)
+        )
+
+    def year_total(self, year: int, group: str) -> int:
+        """Sum of daily gross gains of `group` within `year`."""
+        prefix = f'{year:04d}-'
+        return sum(
+            int(value.get(group, 0))
+            for key, value in self._data.get('daily', {}).items()
+            if key.startswith(prefix)
+        )

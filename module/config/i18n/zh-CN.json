@@ -309,6 +309,10 @@
     "GameManager": {
       "name": "游戏管理器(未完成)",
       "help": ""
+    },
+    "Statistics": {
+      "name": "数据统计",
+      "help": "查看魔方与钻石的每日获取量，按月份与年份分组统计"
     }
   },
   "Scheduler": {
@@ -3357,6 +3361,13 @@
       "Pending": "队列中",
       "Waiting": "等待中",
       "NoTask": "无任务"
+    },
+    "Statistics": {
+      "NoData": "暂无数据",
+      "Year": "年度统计",
+      "Month": "月份",
+      "Date": "日期",
+      "Total": "合计"
     },
     "AddAlas": {
       "PopupTitle": "添加新配置",
