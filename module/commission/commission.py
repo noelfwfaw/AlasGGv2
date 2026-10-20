@@ -13,12 +13,15 @@ from module.config.config_generated import GeneratedConfig
 from module.config.utils import get_server_last_update, get_server_next_update
 from module.dorm.dorm import RewardDorm
 from module.exception import GameStuckError, OilMaxed, RequestHumanTakeover
+from module.gacha.assets import BUILD_CUBE_COUNT
 from module.handler.info_handler import InfoHandler
+from module.log_res.log_res import LogRes
 from module.logger import logger
 from module.map.map_grids import SelectedGrids
+from module.ocr.ocr import Digit
 from module.retire.assets import DOCK_CHECK
 from module.ui.assets import BACK_ARROW, REWARD_GOTO_COMMISSION
-from module.ui.page import page_commission, page_reward
+from module.ui.page import page_build, page_commission, page_reward
 from module.ui.scroll import Scroll
 from module.ui.switch import Switch
 from module.ui.ui import UI
@@ -600,6 +603,38 @@ class RewardCommission(UI, InfoHandler):
         logger.critical(f'Failed to handle oil maxed after 3 trial')
         raise RequestHumanTakeover
 
+    def commission_record_cube(self):
+        """
+        Make a detour to the build page and snapshot the Cube count.
+        Cubes are only OCR-able on the build page, and commissions are a
+        major daily source of cubes. Snapshotting right after collecting
+        commission rewards lets the daily-income tracker attribute the gain
+        to today instead of waiting for the next gacha run.
+
+        Pages:
+            in: page_commission
+            out: page_commission
+        """
+        try:
+            self.ui_ensure(page_build)
+            # ui_ensure returns as soon as the page title appears, so the last
+            # screenshot may still be a transition frame. Take a fresh one so
+            # the Cube counter is fully rendered before OCR.
+            self.device.screenshot()
+            cube = Digit(BUILD_CUBE_COUNT, letter=(255, 247, 247), threshold=64).ocr(self.device.image)
+            if cube > 0:
+                LogRes(self.config).Cube = cube
+                logger.info(f'Record cube count after commission: {cube}')
+            else:
+                logger.warning('commission_record_cube: OCR returned 0, skip snapshot')
+        except RequestHumanTakeover:
+            # Never swallow a human-takeover request.
+            raise
+        except Exception as e:
+            logger.warning(f'commission_record_cube: failed to record cube: {e}')
+        finally:
+            self.ui_ensure(page_commission)
+
     def run(self):
         """
         Pages:
@@ -607,7 +642,10 @@ class RewardCommission(UI, InfoHandler):
             out: page_commission
         """
         self.ui_ensure(page_reward)
-        self.commission_receive()
+        if self.commission_receive():
+            # Snapshot the cube count so commission rewards (a major cube
+            # source) are attributed to today instead of the next gacha run.
+            self.commission_record_cube()
 
         # info_bar appears when get ship in Launch Ceremony commissions
         # This is a game bug, the info_bar shows get ship, will appear over and over again, until you click get_ship.
