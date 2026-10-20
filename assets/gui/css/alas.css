@@ -426,9 +426,42 @@ pre.rich-traceback-code {
 #pywebio-scope-dashboard {
     font-weight: 400;
     width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+/* Resource cards fill the left side and wrap into as many columns as fit;
+   the income summary shares the same row on the right. Sizing both from a
+   ~22rem basis keeps the card rows and the table at a similar height, so
+   the table's row is not left with a blank area beside it. */
+#pywebio-scope-dashboard_cards {
+    flex: 1 1 22rem;
+    min-width: 0;
     display: grid;
     grid-auto-flow: row;
-    grid-template-columns: repeat(auto-fit,minmax(10rem,1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+    align-content: flex-start;
+    gap: 0.25rem;
+}
+
+#pywebio-scope-dashboard > #pywebio-scope-income_summary {
+    flex: 0 1 22rem;
+}
+
+/* Statistics page: each year's month totals and per-month day details share
+   one adaptive grid, so the wide page is filled by several narrow tables
+   instead of a single stacked column. */
+#pywebio-scope-statistics > [id^="pywebio-scope-statistics_year_"] {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    align-items: start;
+    gap: 0.5rem;
+}
+
+#pywebio-scope-statistics > [id^="pywebio-scope-statistics_year_"] > * {
+    margin: 0;
 }
 
 #pywebio-scope-dashboard .form-control{

@@ -95,7 +95,9 @@ class RichLog:
         # self._callback_thread = None
         # self._width = 80
         self.keep_bottom = True
-        self.display_dashboard = False
+        # Dashboard shows all resource groups on first load instead of the
+        # folded 4-group view, so the dashboard is fully populated by default.
+        self.display_dashboard = True
         self.first_display = True
         self.last_display_time = {}
         self.dashboard_arg_group = None

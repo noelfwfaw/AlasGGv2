@@ -585,7 +585,7 @@ class AlasGUI(Frame):
             put_table(
                 summary_rows,
                 header=["", t("Gui.Overview.Cube"), t("Gui.Overview.Gem")],
-            ).style("margin: .3rem 0 .3rem 0;")
+            ).style("margin: .3rem 0 .3rem 0; width: 100%;")
 
             years = self._di.years()
             if not years:
@@ -597,39 +597,46 @@ class AlasGUI(Frame):
                 year_sum = [self._di.year_total(year, g) for g in groups]
                 months = self._di.months_of_year(year)
 
-                # Month totals of this year
-                month_rows = []
-                for month in months:
-                    month_rows.append(
-                        [f"{year}-{month:02d}"]
-                        + [fmt(self._di.month_total(year, month, g)) for g in groups]
-                    )
-                month_rows.append(
-                    [t("Gui.Statistics.Total")] + [fmt(v) for v in year_sum]
+                put_html('<hr class="hr-group">')
+                year_title = f"{year} {t('Gui.Statistics.Year')}  " + "  ".join(
+                    f"{g} {fmt(v)}" for g, v in zip(groups, year_sum)
                 )
+                put_text(year_title).style("font-weight: 700; margin: .3rem 0;")
 
-                contents = [
+                # The year's month totals and every month's daily detail share
+                # one adaptive grid (see alas.css) so the page width is used
+                # instead of stacking narrow tables in a single column.
+                with use_scope(f"statistics_year_{year}"):
+                    month_rows = []
+                    for month in months:
+                        month_rows.append(
+                            [f"{year}-{month:02d}"]
+                            + [fmt(self._di.month_total(year, month, g))
+                               for g in groups]
+                        )
+                    month_rows.append(
+                        [t("Gui.Statistics.Total")] + [fmt(v) for v in year_sum]
+                    )
                     put_table(
                         month_rows,
                         header=[t("Gui.Statistics.Month"),
                                 t("Gui.Overview.Cube"),
                                 t("Gui.Overview.Gem")],
-                    )
-                ]
+                    ).style("margin: 0; width: 100%;")
 
-                # Daily detail of each month
-                for month in months:
-                    day_rows = []
-                    for date_key in self._di.days_of_month(year, month):
-                        day_rows.append(
-                            [date_key]
-                            + [fmt(self._di.get_daily(date_key, g)) for g in groups]
+                    # Daily detail of each month
+                    for month in months:
+                        day_rows = []
+                        for date_key in self._di.days_of_month(year, month):
+                            day_rows.append(
+                                [date_key]
+                                + [fmt(self._di.get_daily(date_key, g))
+                                   for g in groups]
+                            )
+                        month_title = f"{year}-{month:02d}  " + "  ".join(
+                            f"{g} {fmt(self._di.month_total(year, month, g))}"
+                            for g in groups
                         )
-                    month_title = f"{year}-{month:02d}  " + "  ".join(
-                        f"{g} {fmt(self._di.month_total(year, month, g))}"
-                        for g in groups
-                    )
-                    contents.append(
                         put_collapse(
                             title=month_title,
                             content=[
@@ -640,14 +647,8 @@ class AlasGUI(Frame):
                                             t("Gui.Overview.Gem")],
                                 )
                             ],
+                            open=True,
                         )
-                    )
-
-                put_html('<hr class="hr-group">')
-                year_title = f"{year} {t('Gui.Statistics.Year')}  " + "  ".join(
-                    f"{g} {fmt(v)}" for g, v in zip(groups, year_sum)
-                )
-                put_collapse(title=year_title, content=contents)
 
     def set_dashboard_display(self, b=False):
         self._log.set_dashboard_display(b)
@@ -868,34 +869,38 @@ class AlasGUI(Frame):
             # Handle dot color
             _color = f"""background-color:{deep_get(d=group, keys='Color').replace('^', '#')}"""
             color = f'<div class="status-point" style={_color}>'
-            with use_scope(group_name, clear=True):
-                put_row(
-                    [
-                        put_html(color),
-                        put_scope(
-                            f"{group_name}_group",
-                            [
-                                put_column(
-                                    [
-                                        put_row(
-                                            [
-                                                put_text(value
-                                                         ).style(f'--dashboard-value--'),
-                                                put_text(value_limit
-                                                         ).style(limit_style),
-                                            ],
-                                        ).style('grid-template-columns:min-content auto;align-items: baseline;'),
-                                        put_text(
-                                            t(f'Gui.Overview.{group_name}') + " - " + delta + income_hint
-                                        ).style('---dashboard-help--')
-                                    ],
-                                    size="auto auto",
-                                ),
-                            ],
-                        ),
-                    ],
-                    size="20px 1fr"
-                ).style("height: 1fr"),
+            # Cards live in their own scope so the CSS can lay them out as an
+            # adaptive grid on the left while the income summary stays on the
+            # right side of the dashboard.
+            with use_scope("dashboard_cards"):
+                with use_scope(group_name, clear=True):
+                    put_row(
+                        [
+                            put_html(color),
+                            put_scope(
+                                f"{group_name}_group",
+                                [
+                                    put_column(
+                                        [
+                                            put_row(
+                                                [
+                                                    put_text(value
+                                                             ).style(f'--dashboard-value--'),
+                                                    put_text(value_limit
+                                                             ).style(limit_style),
+                                                ],
+                                            ).style('grid-template-columns:min-content auto;align-items: baseline;'),
+                                            put_text(
+                                                t(f'Gui.Overview.{group_name}') + " - " + delta + income_hint
+                                            ).style('---dashboard-help--')
+                                        ],
+                                        size="auto auto",
+                                    ),
+                                ],
+                            ),
+                        ],
+                        size="20px 1fr"
+                    ).style("height: 1fr"),
             x += 1
             if x >= _num:
                 break
@@ -938,7 +943,7 @@ class AlasGUI(Frame):
                         header=["",
                                 t("Gui.Overview.Cube"),
                                 t("Gui.Overview.Gem")],
-                    ).style("margin: .3rem 0 .3rem 0;")
+                    ).style("margin: .3rem 0 .3rem 0; width: 100%;")
             else:
                 # Clear summary scope when data is all zero — avoids stale
                 # content surviving between a data day and a quiet day.
