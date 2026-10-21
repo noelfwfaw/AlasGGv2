@@ -314,6 +314,10 @@
       "name": "遊戲管理器(未完成)",
       "help": ""
     },
+    "StorageScan": {
+      "name": "倉庫掃描",
+      "help": "自動進入倉庫-素材頁，掃描並記錄重要物品的數量（試作型突破、研發圖、心智單元、部件T4等），結果在「資料統計」頁面查看，每天只需掃描一次"
+    },
     "Statistics": {
       "name": "資料統計",
       "help": "查看魔方與鑽石的每日獲取量，按月與年分組統計"
@@ -2657,7 +2661,7 @@
   "OpsiCheckLeveling": {
     "_info": {
       "name": "每日經驗檢測",
-      "help": "檢測出擊艦隊所有船是否已經獲取滿經驗，是的話則發送一條推送消息\n需要先設置錯誤推送設置"
+      "help": "檢測出擊艦隊所有船是否已經獲取滿經驗，是的話則發送一條推送消息\n需要先設定錯誤推送設定"
     },
     "TargetLevel": {
       "name": "所有艦船獲取到可升級至X級的經驗後推送",
@@ -2668,7 +2672,8 @@
       "help": "記錄上一次檢查的時間以防止任務重複運行，檢查間隔為1天，這個數值是自動記錄的，一般不需要修改"
     },
     "DelayAfterFull": {
-      "name": "到達目標等級後推遲任務"
+      "name": "到達目標等級後推遲任務",
+      "help": "OpsiCheckLeveling.DelayAfterFull.help"
     }
   },
   "IslandProduction": {
@@ -3371,17 +3376,17 @@
       "Medal": "Gui.Overview.Medal",
       "Core": "Gui.Overview.Core",
       "GuildCoin": "Gui.Overview.GuildCoin",
+      "Log": "日誌",
+      "Running": "執行中",
+      "Pending": "佇列中",
+      "Waiting": "等待中",
+      "NoTask": "無任務",
       "Income": "Gui.Overview.Income",
       "Today": "Gui.Overview.Today",
       "ThisWeek": "Gui.Overview.ThisWeek",
       "ThisMonth": "Gui.Overview.ThisMonth",
       "ThisYear": "Gui.Overview.ThisYear",
-      "History": "Gui.Overview.History",
-      "Log": "日誌",
-      "Running": "執行中",
-      "Pending": "佇列中",
-      "Waiting": "等待中",
-      "NoTask": "無任務"
+      "History": "Gui.Overview.History"
     },
     "Statistics": {
       "NoData": "暫無資料",
@@ -3390,7 +3395,12 @@
       "Date": "日期",
       "Total": "合計",
       "CubeTotal": "魔方總數",
-      "GemTotal": "鑽石總數"
+      "GemTotal": "鑽石總數",
+      "StorageScan": "倉庫掃描",
+      "LatestScan": "最新掃描",
+      "Amount": "數量",
+      "Change": "較上次",
+      "ScanHistory": "掃描歷史（最近 7 次）"
     },
     "AddAlas": {
       "PopupTitle": "添加新的設定",

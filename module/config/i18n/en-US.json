@@ -314,6 +314,10 @@
       "name": "Game Manager(WIP)",
       "help": ""
     },
+    "StorageScan": {
+      "name": "Storage Scan",
+      "help": "Automatically enters storage material page, scans and records amounts of important items (bulins, blueprints, mental units, T4 parts, etc.). Results are shown in the Statistics page. Scanning once a day is enough."
+    },
     "Statistics": {
       "name": "Statistics",
       "help": "View daily Cube/Gem gains grouped by month and year"
@@ -3372,17 +3376,17 @@
       "Medal": "Medal",
       "Core": "Core Data",
       "GuildCoin": "Guild Coin",
-      "Income": "Daily Income",
-      "History": "History",
       "Log": "Log",
       "Running": "Running",
       "Pending": "Pending",
       "Waiting": "Waiting",
       "NoTask": "No Task",
+      "Income": "Daily Income",
       "Today": "Today",
       "ThisWeek": "This Week",
       "ThisMonth": "This Month",
-      "ThisYear": "This Year"
+      "ThisYear": "This Year",
+      "History": "History"
     },
     "Statistics": {
       "NoData": "No data",
@@ -3391,7 +3395,12 @@
       "Date": "Date",
       "Total": "Total",
       "CubeTotal": "Cube Stock",
-      "GemTotal": "Gem Stock"
+      "GemTotal": "Gem Stock",
+      "StorageScan": "Storage Scan",
+      "LatestScan": "Latest scan",
+      "Amount": "Amount",
+      "Change": "Change",
+      "ScanHistory": "Scan history (last 7)"
     },
     "AddAlas": {
       "PopupTitle": "Add new config",

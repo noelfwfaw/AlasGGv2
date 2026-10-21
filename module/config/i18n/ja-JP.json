@@ -314,6 +314,10 @@
       "name": "Game Manager(WIP)",
       "help": ""
     },
+    "StorageScan": {
+      "name": "倉庫スキャン",
+      "help": "倉庫の素材ページに入り、重要アイテム（試作型ブリ、設計図、メンタルユニット、T4パーツ等）の数量を自動記録します。結果は「統計」ページで確認できます。1日1回のスキャンで十分です。"
+    },
     "Statistics": {
       "name": "統計",
       "help": "魔方とダイヤの日別獲得量を月・年単位で表示"
@@ -2668,7 +2672,8 @@
       "help": "タスクの重複実行を防ぐために前回のチェック時間を記録します。チェック間隔は1日で、この値は自動記録されるため通常変更する必要はありません"
     },
     "DelayAfterFull": {
-      "name": "目標レベル到達後にタスクを延期"
+      "name": "目標レベル到達後にタスクを延期",
+      "help": "OpsiCheckLeveling.DelayAfterFull.help"
     }
   },
   "IslandProduction": {
@@ -3371,17 +3376,17 @@
       "Medal": "Gui.Overview.Medal",
       "Core": "Gui.Overview.Core",
       "GuildCoin": "Gui.Overview.GuildCoin",
+      "Log": "ログ",
+      "Running": "実行中",
+      "Pending": "隊列中",
+      "Waiting": "Waiting",
+      "NoTask": "No Task",
       "Income": "Gui.Overview.Income",
       "Today": "Gui.Overview.Today",
       "ThisWeek": "Gui.Overview.ThisWeek",
       "ThisMonth": "Gui.Overview.ThisMonth",
       "ThisYear": "Gui.Overview.ThisYear",
-      "History": "Gui.Overview.History",
-      "Log": "ログ",
-      "Running": "実行中",
-      "Pending": "隊列中",
-      "Waiting": "Waiting",
-      "NoTask": "No Task"
+      "History": "Gui.Overview.History"
     },
     "Statistics": {
       "NoData": "データなし",
@@ -3390,7 +3395,12 @@
       "Date": "日付",
       "Total": "合計",
       "CubeTotal": "魔方在庫",
-      "GemTotal": "ダイヤ在庫"
+      "GemTotal": "ダイヤ在庫",
+      "StorageScan": "倉庫スキャン",
+      "LatestScan": "最新スキャン",
+      "Amount": "数量",
+      "Change": "前回比",
+      "ScanHistory": "スキャン履歴（直近 7 件）"
     },
     "AddAlas": {
       "PopupTitle": "新しいコンフィグを追加",

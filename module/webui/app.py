@@ -1,6 +1,7 @@
 import re
 import argparse
 import json
+import os
 import queue
 import threading
 import time
@@ -121,6 +122,24 @@ def timedelta_to_text(delta=None):
     time_delta_display = str(time_delta_display)
     time_delta_name = time_delta_name_prefix + time_delta_name_suffix
     return time_delta_display + t(time_delta_name)
+
+
+def storage_item_color(name):
+    """
+    Category color for storage scan item names, to make the statistics
+    table easier to scan by eye.
+    """
+    if '突破' in name:
+        return '#ffc107'   # Bulins: gold
+    if '研发图' in name or '实验计划' in name:
+        return '#b388ff'   # Blueprints / plans: purple
+    if '心智' in name:
+        return '#4fc3f7'   # Mental units: blue
+    if '部件' in name:
+        return '#81c784'   # T4 parts: green
+    if '原型' in name:
+        return '#ff9e6d'   # Prototypes: orange
+    return '#f48fb1'       # Others (cat boxes): pink
 
 
 class AlasGUI(Frame):
@@ -552,13 +571,16 @@ class AlasGUI(Frame):
     @use_scope("content", clear=True)
     def alas_statistics(self, task="Statistics") -> None:
         """
-        Detailed Cube / Gem income history, grouped by year -> month -> day.
+        Storage scan records and detailed Cube / Gem income history,
+        grouped by year -> month -> day.
         """
         self.init_menu(name=task)
         self.set_title(t(f"Task.{task}.name"))
         put_scope("statistics")
 
         with use_scope("statistics"):
+            self.alas_storage_scan()
+
             try:
                 from module.statistics.statistics import DailyIncome
                 self._di = DailyIncome(self.alas_config.config_name)
@@ -658,6 +680,77 @@ class AlasGUI(Frame):
                             ],
                             open=True,
                         )
+
+    def alas_storage_scan(self) -> None:
+        """
+        Render storage scan records (log/storage_scan/records.json):
+        latest snapshot table with colored item names + change since
+        previous scan, and a collapsible history of recent scans.
+        """
+        path = os.path.join("log", "storage_scan", "records.json")
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                history = json.load(f)
+        except Exception:
+            history = []
+        # Only scans with data are useful
+        history = [h for h in history if h.get("items")]
+        if not history:
+            return
+
+        put_html('<hr class="hr-group">')
+        put_text(t("Gui.Statistics.StorageScan")).style(
+            "font-weight: 700; margin: .3rem 0;")
+
+        def item_span(name, bold=False):
+            color = storage_item_color(name)
+            weight = "700" if bold else "400"
+            return f'<span style="color: {color}; font-weight: {weight};">{name}</span>'
+
+        # Latest snapshot with change since previous scan
+        latest, prev = history[-1], history[-2] if len(history) >= 2 else None
+        prev_items = {i["name"]: i["amount"] for i in prev["items"]} if prev else {}
+        rows = []
+        for item in latest["items"]:
+            name, amount = item["name"], item["amount"]
+            old = prev_items.get(name)
+            if old is None or old == amount:
+                change = "-"
+            else:
+                delta = amount - old
+                color = "#4caf50" if delta > 0 else "#ef5350"
+                change = f'<span style="color: {color};">{delta:+d}</span>'
+            rows.append([
+                put_html(item_span(name)),
+                str(amount),
+                put_html(change),
+            ])
+        put_table(
+            rows,
+            header=[f'{t("Gui.Statistics.LatestScan")} {latest["time"]}',
+                    t("Gui.Statistics.Amount"),
+                    t("Gui.Statistics.Change")],
+        ).style("margin: .3rem 0 .3rem 0; width: 100%;")
+
+        # Recent scans history
+        put_collapse(
+            title=t("Gui.Statistics.ScanHistory"),
+            content=[
+                put_table(
+                    [
+                        [scan["time"]]
+                        + [f'{item_span(i["name"])}: {i["amount"]}'
+                           for i in scan["items"][:6]]
+                        + ["..." if len(scan["items"]) > 6 else ""]
+                        for scan in reversed(history[-7:])
+                    ],
+                    header=["Time"] + [""] * 7,
+                )
+            ],
+            open=False,
+        )
 
     def set_dashboard_display(self, b=False):
         self._log.set_dashboard_display(b)
