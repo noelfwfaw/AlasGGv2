@@ -702,6 +702,28 @@ class AlasGUI(Frame):
         if not history:
             return
 
+        # 展示排序：同类型物品排在一起
+        # 心智单元最上，部件其次，然后突破、研发图（金紫相邻）、计划原型、喵箱
+        item_order = [
+            '心智单元', '心智单元II',
+            '通用部件T4', '主炮部件T4', '鱼雷部件T4', '防空炮部件T4', '舰载机部件T4',
+            '特装型突破', '试作型突破',
+            '舰炮研发图(金)', '舰炮研发图(紫)', '鱼雷研发图(金)', '鱼雷研发图(紫)',
+            '防空炮研发图(金)', '防空炮研发图(紫)', '舰载机研发图(金)', '舰载机研发图(紫)',
+            '装备研发图(金)', '装备研发图(紫)',
+            '绝密实验计划', '特装原型',
+            '喵箱SSR型',
+        ]
+
+        def sort_key(item):
+            name = item["name"]
+            if name in item_order:
+                return (0, item_order.index(name), name)
+            return (1, 0, name)  # 未列入排序表的物品按名称排在最后
+
+        for scan in history:
+            scan["items"] = sorted(scan["items"], key=sort_key)
+
         put_html('<hr class="hr-group">')
         put_text(t("Gui.Statistics.StorageScan")).style(
             "font-weight: 700; margin: .3rem 0;")
