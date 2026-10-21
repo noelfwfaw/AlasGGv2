@@ -2657,7 +2657,7 @@
   "OpsiCheckLeveling": {
     "_info": {
       "name": "每日經驗檢測",
-      "help": "檢測出擊艦隊所有船是否已經獲取滿經驗，是的話則發送一條推送消息\n需要先設定錯誤推送設定"
+      "help": "檢測出擊艦隊所有船是否已經獲取滿經驗，是的話則發送一條推送消息\n需要先設置錯誤推送設置"
     },
     "TargetLevel": {
       "name": "所有艦船獲取到可升級至X級的經驗後推送",
@@ -2668,8 +2668,7 @@
       "help": "記錄上一次檢查的時間以防止任務重複運行，檢查間隔為1天，這個數值是自動記錄的，一般不需要修改"
     },
     "DelayAfterFull": {
-      "name": "到達目標等級後推遲任務",
-      "help": "OpsiCheckLeveling.DelayAfterFull.help"
+      "name": "到達目標等級後推遲任務"
     }
   },
   "IslandProduction": {
@@ -3372,15 +3371,17 @@
       "Medal": "Gui.Overview.Medal",
       "Core": "Gui.Overview.Core",
       "GuildCoin": "Gui.Overview.GuildCoin",
+      "Income": "Gui.Overview.Income",
+      "Today": "Gui.Overview.Today",
+      "ThisWeek": "Gui.Overview.ThisWeek",
+      "ThisMonth": "Gui.Overview.ThisMonth",
+      "ThisYear": "Gui.Overview.ThisYear",
+      "History": "Gui.Overview.History",
       "Log": "日誌",
       "Running": "執行中",
       "Pending": "佇列中",
       "Waiting": "等待中",
-      "NoTask": "無任務",
-      "Today": "Gui.Overview.Today",
-      "ThisWeek": "Gui.Overview.ThisWeek",
-      "ThisMonth": "Gui.Overview.ThisMonth",
-      "ThisYear": "Gui.Overview.ThisYear"
+      "NoTask": "無任務"
     },
     "Statistics": {
       "NoData": "暫無資料",

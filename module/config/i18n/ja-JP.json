@@ -2668,8 +2668,7 @@
       "help": "タスクの重複実行を防ぐために前回のチェック時間を記録します。チェック間隔は1日で、この値は自動記録されるため通常変更する必要はありません"
     },
     "DelayAfterFull": {
-      "name": "目標レベル到達後にタスクを延期",
-      "help": "OpsiCheckLeveling.DelayAfterFull.help"
+      "name": "目標レベル到達後にタスクを延期"
     }
   },
   "IslandProduction": {
@@ -3372,15 +3371,17 @@
       "Medal": "Gui.Overview.Medal",
       "Core": "Gui.Overview.Core",
       "GuildCoin": "Gui.Overview.GuildCoin",
+      "Income": "Gui.Overview.Income",
+      "Today": "Gui.Overview.Today",
+      "ThisWeek": "Gui.Overview.ThisWeek",
+      "ThisMonth": "Gui.Overview.ThisMonth",
+      "ThisYear": "Gui.Overview.ThisYear",
+      "History": "Gui.Overview.History",
       "Log": "ログ",
       "Running": "実行中",
       "Pending": "隊列中",
       "Waiting": "Waiting",
-      "NoTask": "No Task",
-      "Today": "Gui.Overview.Today",
-      "ThisWeek": "Gui.Overview.ThisWeek",
-      "ThisMonth": "Gui.Overview.ThisMonth",
-      "ThisYear": "Gui.Overview.ThisYear"
+      "NoTask": "No Task"
     },
     "Statistics": {
       "NoData": "データなし",
