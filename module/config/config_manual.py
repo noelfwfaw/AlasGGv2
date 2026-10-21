@@ -15,6 +15,7 @@ class ManualConfig:
     > Exercise
     > Dorm > Meowfficer > Guild > Gacha
     > Reward
+    > StorageScan
     > ShopFrequent > EventShop > ShopOnce > Shipyard > Freebies
     > PrivateQuarters
     > OpsiExplore
@@ -33,7 +34,6 @@ class ManualConfig:
     > OpsiMeowfficerFarming
     > GemsFarming
     > OpsiHazard1Leveling
-    > StorageScan
     """
 
     """
