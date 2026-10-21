@@ -124,22 +124,26 @@ def timedelta_to_text(delta=None):
     return time_delta_display + t(time_delta_name)
 
 
-def storage_item_color(name):
+def storage_item_style(name):
     """
-    Category color for storage scan item names, to make the statistics
+    Category style for storage scan item names, to make the statistics
     table easier to scan by eye.
+    - 渐变彩色: UR 型研发图、绝密实验计划、特装型突破部件
+    - 金色: SSR 型研发图、试作型突破部件
     """
-    if '突破' in name:
-        return '#ffc107'   # Bulins: gold
-    if '研发图' in name or '实验计划' in name:
-        return '#b388ff'   # Blueprints / plans: purple
+    if name.endswith('UR型') or name in ('绝密实验计划', '特装型突破部件'):
+        return ('background: linear-gradient(90deg, #ff6d6d, #ffb347, #ffe066, '
+                '#7bed9f, #70a1ff, #c56cf0); -webkit-background-clip: text; '
+                'background-clip: text; color: transparent;')
+    if '研发图SSR型' in name or name == '试作型突破部件':
+        return 'color: #ffd700;'
     if '心智' in name:
-        return '#4fc3f7'   # Mental units: blue
+        return 'color: #4fc3f7;'   # Mental units: blue
     if '部件' in name:
-        return '#81c784'   # T4 parts: green
+        return 'color: #81c784;'   # T4 parts: green
     if '原型' in name:
-        return '#ff9e6d'   # Prototypes: orange
-    return '#f48fb1'       # Others (cat boxes): pink
+        return 'color: #ff9e6d;'   # Prototypes: orange
+    return 'color: #f48fb1;'       # Others (cat boxes): pink
 
 
 class AlasGUI(Frame):
@@ -703,25 +707,36 @@ class AlasGUI(Frame):
             return
 
         # 展示排序：同类型物品排在一起
-        # 心智单元最上，部件其次，然后突破、研发图（金紫相邻）、计划原型、喵箱
+        # 心智单元最上，部件其次，然后突破、研发图（UR 在 SSR 上）、计划原型、喵箱
         item_order = [
             '心智单元', '心智单元II',
             '通用部件T4', '主炮部件T4', '鱼雷部件T4', '防空炮部件T4', '舰载机部件T4',
-            '特装型突破', '试作型突破',
-            '舰炮研发图(金)', '舰炮研发图(紫)', '鱼雷研发图(金)', '鱼雷研发图(紫)',
-            '防空炮研发图(金)', '防空炮研发图(紫)', '舰载机研发图(金)', '舰载机研发图(紫)',
-            '装备研发图(金)', '装备研发图(紫)',
+            '特装型突破部件', '试作型突破部件',
+            '舰炮研发图UR型', '舰炮研发图SSR型', '鱼雷研发图UR型', '鱼雷研发图SSR型',
+            '防空炮研发图UR型', '防空炮研发图SSR型', '舰载机研发图UR型', '舰载机研发图SSR型',
+            '装备研发图UR型',
             '绝密实验计划', '特装原型',
             '喵箱SSR型',
         ]
+        # 旧记录名归一化到新命名，保证"较上次变化"跨改名连续
+        legacy_rename = {
+            '特装型突破': '特装型突破部件', '试作型突破': '试作型突破部件',
+            '装备研发图': '装备研发图UR型',
+            '舰炮研发图(紫)': '舰炮研发图UR型', '舰炮研发图(金)': '舰炮研发图SSR型',
+            '鱼雷研发图(紫)': '鱼雷研发图UR型', '鱼雷研发图(金)': '鱼雷研发图SSR型',
+            '防空炮研发图(紫)': '防空炮研发图UR型', '防空炮研发图(金)': '防空炮研发图SSR型',
+            '舰载机研发图(紫)': '舰载机研发图UR型', '舰载机研发图(金)': '舰载机研发图SSR型',
+        }
 
         def sort_key(item):
-            name = item["name"]
+            name = legacy_rename.get(item["name"], item["name"])
             if name in item_order:
                 return (0, item_order.index(name), name)
             return (1, 0, name)  # 未列入排序表的物品按名称排在最后
 
         for scan in history:
+            for item in scan["items"]:
+                item["name"] = legacy_rename.get(item["name"], item["name"])
             scan["items"] = sorted(scan["items"], key=sort_key)
 
         put_html('<hr class="hr-group">')
@@ -729,9 +744,9 @@ class AlasGUI(Frame):
             "font-weight: 700; margin: .3rem 0;")
 
         def item_span(name, bold=False):
-            color = storage_item_color(name)
+            style = storage_item_style(name)
             weight = "700" if bold else "400"
-            return f'<span style="color: {color}; font-weight: {weight};">{name}</span>'
+            return f'<span style="{style} font-weight: {weight};">{name}</span>'
 
         # Latest snapshot with change since previous scan
         latest, prev = history[-1], history[-2] if len(history) >= 2 else None
