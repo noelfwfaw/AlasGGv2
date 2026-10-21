@@ -683,11 +683,13 @@ class AlasGUI(Frame):
 
     def alas_storage_scan(self) -> None:
         """
-        Render storage scan records (log/storage_scan/records.json):
+        Render storage scan records
+        (log/storage_scan/<instance>/records.json):
         latest snapshot table with colored item names + change since
         previous scan, and a collapsible history of recent scans.
         """
-        path = os.path.join("log", "storage_scan", "records.json")
+        path = os.path.join(
+            "log", "storage_scan", self.alas_config.config_name, "records.json")
         if not os.path.exists(path):
             return
         try:

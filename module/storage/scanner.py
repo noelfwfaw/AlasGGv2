@@ -555,12 +555,14 @@ class MaterialScanner(StorageUI):
     def save_records(self):
         """
         保存扫描结果 JSON（历史记录追加模式）。
+        按实例名分目录存储，多实例（大小号）互不干扰。
 
         Returns:
             str: 文件路径
         """
-        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-        path = os.path.join(OUTPUT_FOLDER, 'records.json')
+        folder = os.path.join(OUTPUT_FOLDER, self.config.config_name)
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, 'records.json')
         history = []
         if os.path.exists(path):
             try:
