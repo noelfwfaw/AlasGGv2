@@ -585,17 +585,27 @@ class MaterialScanner(StorageUI):
     def run(self):
         """
         任务入口：进入仓库扫描材料页并记录白名单物品数量。
+
+        结束后必须调用 config.task_delay() 推迟 NextRun，
+        否则调度器会因任务时间已过立刻再次触发，无限重复扫描。
         """
         if not self.device.app_is_running():
             logger.warning('Game is not running, start it')
             self.app_start()
 
-        self.ui_goto_storage()
-        records = self.scan_material()
-        logger.hr('Storage scan results', level=1)
-        for name, amount in sorted(records.items()):
-            logger.attr(name, amount)
-        self.save_records()
+        try:
+            self.ui_goto_storage()
+            records = self.scan_material()
+            logger.hr('Storage scan results', level=1)
+            for name, amount in sorted(records.items()):
+                logger.attr(name, amount)
+            self.save_records()
+        except Exception:
+            # 失败也要推迟（FailureInterval），防止调度器立刻重试死循环
+            self.config.task_delay(success=False)
+            raise
+        # 成功：推迟到 SuccessInterval 之后（默认 1440 分钟 = 明天）
+        self.config.task_delay(success=True)
 
 
 if __name__ == '__main__':
