@@ -28,6 +28,29 @@ WHITELIST = [
 # 同名不同品质物品并存时，记录名加品质后缀（仅在该名字出现多种品质时）
 QUALITY_SUFFIX = {'gold': '(金)', 'purple': '(紫)'}
 
+
+def display_name(name, quality, suffix=False):
+    """
+    输出名按游戏稀有度命名：
+    - 特装型/试作型突破 -> 加"部件"后缀
+    - 装备研发图 -> 装备研发图UR型
+    - 四类研发图按品质：紫UR型、金SSR型
+    - suffix=True（同名多数量分组）时其余物品加品质兜底后缀
+    """
+    if name == '装备研发图':
+        return '装备研发图UR型'
+    if name in ('特装型突破', '试作型突破'):
+        return name + '部件'
+    if name.endswith('研发图'):
+        if quality == 'purple':
+            return name + 'UR型'
+        if quality == 'gold':
+            return name + 'SSR型'
+        return name
+    if suffix:
+        return name + QUALITY_SUFFIX.get(quality, '')
+    return name
+
 # 部件类物品（同档五种）：名条 OCR 常吞掉/互读档位数字（T1↔T4），
 # 档位靠品质裁决——T1 灰框、T2 蓝/T3 紫框、T4 金框
 PART_HEADS = ('通用部件', '主炮部件', '鱼雷部件', '防空炮部件', '舰载机部件')
@@ -546,11 +569,13 @@ class MaterialScanner(StorageUI):
         out = {}
         for name, groups in by_name.items():
             if len(groups) == 1:
-                out[name] = next(iter(groups))
+                amount, quals = next(iter(groups.items()))
+                quality = max(quals.items(), key=lambda kv: kv[1])[0]
+                out[display_name(name, quality)] = amount
                 continue
             for amount, quals in groups.items():
                 quality, _ = max(quals.items(), key=lambda kv: kv[1])
-                out[name + QUALITY_SUFFIX.get(quality, '')] = amount
+                out[display_name(name, quality, suffix=True)] = amount
         return out
 
     def save_records(self):
