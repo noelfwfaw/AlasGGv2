@@ -305,7 +305,11 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         limit_next_run(["OpsiExplore", "OpsiCrossMonth", "OpsiVoucher", "OpsiMonthBoss", "OpsiShop"],
                        limit=now + timedelta(days=31, seconds=-1))
         limit_next_run(["OpsiArchive"], limit=now + timedelta(days=7, seconds=-1))
-        limit_next_run(self.args.keys(), limit=now + timedelta(hours=24, seconds=-1))
+        # StorageScan 每天扫一次，NextRun 固定推迟 24 小时，
+        # 不参与 24h 上限拉回（否则次日同时刻会被拉回 now，
+        # 任务结束又被立即触发，形成无限重扫循环）
+        limited_tasks = [task for task in self.args.keys() if task != 'StorageScan']
+        limit_next_run(limited_tasks, limit=now + timedelta(hours=24, seconds=-1))
 
         """
         Override anything you want.
