@@ -7,7 +7,6 @@ from datetime import datetime
 import numpy as np
 
 from module.base.timer import Timer
-from module.base.utils import save_image
 from module.logger import logger
 from module.ocr.ocr import Ocr
 from module.statistics.item import AmountOcr
@@ -433,8 +432,9 @@ class MaterialScanner(StorageUI):
         self.reach_top()
         self._scan_pass(self.MAX_PAGE)
         # 顶部几行只在开头出现，若被遮挡区裁掉或当时误读则没有机会
-        # 修正；未集齐时回顶补扫几页，靠跨页票数共识纠正
-        if len({name for name, _ in self.votes}) < len(WHITELIST):
+        # 修正；扫到过物品但未集齐时回顶补扫几页，靠跨页票数共识纠正。
+        # 一无所获（如小号没有白名单物品）不补扫，避免重复空扫
+        if self.votes and len({name for name, _ in self.votes}) < len(WHITELIST):
             logger.info('MaterialScanner: top rescue pass')
             self.reach_top()
             self._scan_pass(8, label='r')
@@ -442,33 +442,38 @@ class MaterialScanner(StorageUI):
 
     def _scan_pass(self, max_pages, label='p'):
         """
-        从当前位置向下逐页扫描一程，直到集齐/到底/页数上限。
+        从当前位置向下逐页扫描一程，终止条件（按优先级）：
+        1. 集齐白名单
+        2. 连续 3 页无新增白名单物品（物品都在靠前位置，
+           再翻只是重复内容；小号没有白名单物品时快速停）
+        3. 连续 3 页检不出名称横条（空仓库/页面到底）
+        4. 滑动后画面不再变化（到底）
+        5. 页数上限
         结果累积进 self.votes（跨页共识），调用方决定是否补扫。
         """
-        # 调试：保存每页截图，用于诊断漏检/误读（正式版移除）
-        pages_dir = os.path.join(OUTPUT_FOLDER, 'pages')
-        os.makedirs(pages_dir, exist_ok=True)
-        page_no = len([f for f in os.listdir(pages_dir) if f.startswith(label)])
-        timeout = Timer(300, count=60).start()
-        unchanged = 0
+        unchanged = 0      # 到底判定：滑动后画面不变计数
+        no_progress = 0    # 无新增物品计数
+        no_bars = 0        # 检不出名称横条计数
+        known = set()      # 本程已见过的 (名, 品质) 组合
         for _ in range(max_pages):
-            timeout.reset()
             # 长循环反复滑动属于合法场景，清空点击保护计数
             self.device.click_record_clear()
             image = self.wait_settled()
-            save_image(image, os.path.join(pages_dir, f'{label}{page_no:03d}.png'))
-            page_no += 1
             found = self.scan_current_view(image)
             if found is None:
                 # 无行检出：可能画面还在惯性滚动，重截一次再试
                 image = self.wait_settled()
                 found = self.scan_current_view(image)
             if found is None:
-                logger.info('MaterialScanner: no name bars detected')
+                no_bars += 1
+                if no_bars >= 3:
+                    logger.info('MaterialScanner: no name bars for 3 pages, stop')
+                    return
                 # 慢速小步再探，避免跳过本页内容
                 self.swipe_next(distance=80)
                 self.device.screenshot()
                 continue
+            no_bars = 0
             # 同一物品跨多页出现（翻页重叠），偶发 OCR 误读/品质
             # 截断误配（如金框部件T5 吞数字后形似部件T4）只会
             # 出现在单页；按出现页数投票取共识值
@@ -482,6 +487,18 @@ class MaterialScanner(StorageUI):
             if covered >= len(WHITELIST):
                 logger.info('MaterialScanner: whitelist complete, stop early')
                 return
+            # 连续多页无新增物品组合：白名单物品都在靠前位置，
+            # 后面翻页只重复已知内容；小号仓库可能一个都没有
+            new_keys = set(found) - known
+            known |= new_keys
+            if new_keys:
+                no_progress = 0
+            else:
+                no_progress += 1
+                if no_progress >= 3:
+                    logger.info('MaterialScanner: no new items for 3 pages, '
+                                'stop (covered %d/%d)', covered, len(WHITELIST))
+                    return
             # 翻页并检测是否到底（滑动后画面不变即到底）
             self.swipe_next()
             next_image = self.wait_settled()
