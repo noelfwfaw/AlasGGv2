@@ -166,10 +166,28 @@ class LoginHandler(UI):
         """
         logger.info('handle_app_login')
         self.device.screenshot_interval_set(1.0)
+        # JP client tends to sit on the manjuu / loading screen for minutes
+        # when the network flaps (observed: 131s of manjuu, then another
+        # 180s of silent loading). The default 60s / 180s stuck budget then
+        # raises a false GameStuckError, which burns the Restart task's
+        # 3-failure budget and ends with a human takeover.
+        # Only JP gets the longer window; other servers keep the defaults.
+        jp_extended = server.server == 'jp'
+        if jp_extended:
+            original_stuck_timer = self.device.stuck_timer
+            original_stuck_timer_long = self.device.stuck_timer_long
+            self.device.stuck_timer = Timer(300, count=300).start()
+            self.device.stuck_timer_long = Timer(600, count=600).start()
         try:
             self._handle_app_login()
         finally:
             self.device.screenshot_interval_set()
+            if jp_extended:
+                self.device.stuck_timer = original_stuck_timer
+                self.device.stuck_timer_long = original_stuck_timer_long
+                # The restored timers are old instances, reset them so the
+                # main loop does not see them as already expired.
+                self.device.stuck_record_clear()
 
     def app_stop(self):
         if self.config.Emulator_ControlMethod in self._app_u2_family and not self.have_been_reset:
