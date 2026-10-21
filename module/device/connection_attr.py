@@ -54,14 +54,6 @@ class ConnectionAttr:
             for k, _ in deep_iter(d, depth=1):
                 if 'proxy' in k[0].split('_')[-1].lower():
                     del os.environ[k[0]]
-        else:
-            su = super(self.config.__class__, self.config)
-            for k, v in deep_iter(su.__dict__, depth=1):
-                if not isinstance(v, str):
-                    continue
-                if 'eri' in k[0].split('_')[-1]:
-                    print(k, v)
-                    su.__setattr__(k[0], chr(8) + v)
         # Cache adb_client
         _ = self.adb_client
 
