@@ -68,18 +68,22 @@ class LoginHandler(UI):
 
             # Login
             if self.match_template_color(LOGIN_CHECK, offset=(30, 30), interval=5):
-                # Only click when login has not succeeded yet. Afterwards the
-                # loading screen may falsely match LOGIN_CHECK and every click
-                # would reset the stuck timer, so the game hangs forever.
-                if not login_success:
+                # Only click when login has not succeeded yet, except on jp.
+                # When the network flaps the jp client drops back to the title
+                # screen after the manjuu loading ends, so the screen has to be
+                # tapped again. Keeping the gate there made the loop idle until
+                # the outer 600s app_restart timeout and restarted a game that
+                # was already waiting for a tap.
+                if not login_success or server.server == 'jp':
                     self.device.click(LOGIN_CHECK)
-                    logger.info('Login success')
-                    login_success = True
-                    # Reset stuck timers now that we've crossed the login threshold.
-                    # Network flaky regions (JP) may have burnt most of the 180s
-                    # stuck_timer_long on manjuu/waiting before login_success; the
-                    # post-login main-page loading deserves a fresh timeout window.
-                    self.device.stuck_record_clear()
+                    if not login_success:
+                        logger.info('Login success')
+                        login_success = True
+                        # Reset stuck timers now that we've crossed the login threshold.
+                        # Network flaky regions (JP) may have burnt most of the 180s
+                        # stuck_timer_long on manjuu/waiting before login_success; the
+                        # post-login main-page loading deserves a fresh timeout window.
+                        self.device.stuck_record_clear()
             if self.appear(ANDROID_NO_RESPOND, offset=(30, 30), interval=5):
                 logger.warning('Emulator no respond')
                 self.device.click_record_add(ANDROID_NO_RESPOND)
@@ -167,17 +171,18 @@ class LoginHandler(UI):
         logger.info('handle_app_login')
         self.device.screenshot_interval_set(1.0)
         # JP client tends to sit on the manjuu / loading screen for minutes
-        # when the network flaps (observed: 131s of manjuu, then another
-        # 180s of silent loading). The default 60s / 180s stuck budget then
-        # raises a false GameStuckError, which burns the Restart task's
-        # 3-failure budget and ends with a human takeover.
+        # when the network flaps (observed: 131s of manjuu). The default
+        # 60s / 180s stuck budget then raises a false GameStuckError. Keep the
+        # extended window below the 600s app_restart timeout in gg_handler,
+        # otherwise a really hung screen waits for that outer timeout instead
+        # of raising GameStuckError early.
         # Only JP gets the longer window; other servers keep the defaults.
         jp_extended = server.server == 'jp'
         if jp_extended:
             original_stuck_timer = self.device.stuck_timer
             original_stuck_timer_long = self.device.stuck_timer_long
             self.device.stuck_timer = Timer(300, count=300).start()
-            self.device.stuck_timer_long = Timer(600, count=600).start()
+            self.device.stuck_timer_long = Timer(300, count=300).start()
         try:
             self._handle_app_login()
         finally:
