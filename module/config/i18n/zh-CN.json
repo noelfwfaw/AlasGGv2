@@ -2668,8 +2668,7 @@
       "help": "记录上一次检查的时间以防止任务重复运行，检查间隔为1天，这个数值是自动记录的，一般不需要修改"
     },
     "DelayAfterFull": {
-      "name": "到达目标等级后推迟任务",
-      "help": "OpsiCheckLeveling.DelayAfterFull.help"
+      "name": "到达目标等级后推迟任务"
     }
   },
   "IslandProduction": {
@@ -3372,15 +3371,17 @@
       "Medal": "勋章",
       "Core": "核心数据",
       "GuildCoin": "舰队币",
+      "Income": "每日获取统计",
+      "Today": "今日",
+      "ThisWeek": "本周",
+      "ThisMonth": "本月",
+      "ThisYear": "今年",
+      "History": "历史",
       "Log": "日志",
       "Running": "运行中",
       "Pending": "队列中",
       "Waiting": "等待中",
-      "NoTask": "无任务",
-      "Today": "今日",
-      "ThisWeek": "本周",
-      "ThisMonth": "本月",
-      "ThisYear": "今年"
+      "NoTask": "无任务"
     },
     "Statistics": {
       "NoData": "暂无数据",
