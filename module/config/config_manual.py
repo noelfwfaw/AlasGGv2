@@ -33,6 +33,7 @@ class ManualConfig:
     > OpsiMeowfficerFarming
     > GemsFarming
     > OpsiHazard1Leveling
+    > StorageScan
     """
 
     """
