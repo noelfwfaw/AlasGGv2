@@ -7,6 +7,7 @@ from datetime import datetime
 import numpy as np
 
 from module.base.timer import Timer
+from module.handler.login import LoginHandler
 from module.logger import logger
 from module.ocr.ocr import Ocr
 from module.statistics.item import AmountOcr
@@ -593,7 +594,7 @@ class MaterialScanner(StorageUI):
         """
         if not self.device.app_is_running():
             logger.warning('Game is not running, start it')
-            self.app_start()
+            LoginHandler(config=self.config, device=self.device).app_start()
 
         try:
             self.ui_goto_storage()
