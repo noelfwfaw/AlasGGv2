@@ -378,4 +378,6 @@ Tool:
       - GameManager
       - GGHandler
       - PowerLimit
+    StorageScan:
+      - Scheduler
     Statistics: []

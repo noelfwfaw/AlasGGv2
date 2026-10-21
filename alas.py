@@ -474,6 +474,10 @@ class AzurLaneAutoScript:
         from module.daemon.benchmark import run_benchmark
         run_benchmark(config=self.config)
 
+    def storage_scan(self):
+        from module.storage.scanner import MaterialScanner
+        MaterialScanner(config=self.config, device=self.device, task="StorageScan").run()
+
     def game_manager(self):
         from module.daemon.game_manager import GameManager
         GameManager(config=self.config, device=self.device, task="GameManager").run()

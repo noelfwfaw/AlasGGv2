@@ -120,6 +120,7 @@
       "Benchmark",
       "AzurLaneUncensored",
       "GameManager",
+      "StorageScan",
       "Statistics"
     ]
   }
