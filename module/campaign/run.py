@@ -361,6 +361,12 @@ class CampaignRun(CampaignEvent):
             in: page_campaign
         """
         if self.campaign.commission_notice_show_at_campaign():
+            # Respect user-disabled Commission task. task_call(force_call=True)
+            # would flip Scheduler.Enable back to True, silently undoing the
+            # setting, so only interrupt the current task when it is enabled.
+            if not self.config.is_task_enabled('Commission'):
+                logger.info('Commission notice found, but Commission task is disabled, ignore')
+                return
             logger.info('Commission notice found')
             self.config.task_call('Commission', force_call=True)
             self.config.task_stop('Commission notice found')
