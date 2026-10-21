@@ -7178,14 +7178,13 @@
   "Commission": {
     "Scheduler": {
       "Enable": {
-        "type": "lock",
+        "type": "checkbox",
         "value": true,
         "option": [
-          true
+          true,
+          false
         ],
-        "option_bold": [
-          true
-        ]
+        "display": "display"
       },
       "NextRun": {
         "type": "datetime",
@@ -7345,14 +7344,13 @@
   "Research": {
     "Scheduler": {
       "Enable": {
-        "type": "lock",
+        "type": "checkbox",
         "value": true,
         "option": [
-          true
+          true,
+          false
         ],
-        "option_bold": [
-          true
-        ]
+        "display": "display"
       },
       "NextRun": {
         "type": "datetime",
