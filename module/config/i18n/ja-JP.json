@@ -2334,9 +2334,33 @@
       "name": "Hard._info.name",
       "help": "Hard._info.help"
     },
-    "HardStage": {
-      "name": "Hard.HardStage.name",
-      "help": "Hard.HardStage.help"
+    "HardStageMonday": {
+      "name": "Hard.HardStageMonday.name",
+      "help": "Hard.HardStageMonday.help"
+    },
+    "HardStageTuesday": {
+      "name": "Hard.HardStageTuesday.name",
+      "help": "Hard.HardStageTuesday.help"
+    },
+    "HardStageWednesday": {
+      "name": "Hard.HardStageWednesday.name",
+      "help": "Hard.HardStageWednesday.help"
+    },
+    "HardStageThursday": {
+      "name": "Hard.HardStageThursday.name",
+      "help": "Hard.HardStageThursday.help"
+    },
+    "HardStageFriday": {
+      "name": "Hard.HardStageFriday.name",
+      "help": "Hard.HardStageFriday.help"
+    },
+    "HardStageSaturday": {
+      "name": "Hard.HardStageSaturday.name",
+      "help": "Hard.HardStageSaturday.help"
+    },
+    "HardStageSunday": {
+      "name": "Hard.HardStageSunday.name",
+      "help": "Hard.HardStageSunday.help"
     },
     "HardFleet": {
       "name": "Hard.HardFleet.name",
@@ -3395,12 +3419,7 @@
       "Date": "日付",
       "Total": "合計",
       "CubeTotal": "魔方在庫",
-      "GemTotal": "ダイヤ在庫",
-      "StorageScan": "倉庫スキャン",
-      "LatestScan": "最新スキャン",
-      "Amount": "数量",
-      "Change": "前回比",
-      "ScanHistory": "スキャン履歴（直近 7 件）"
+      "GemTotal": "ダイヤ在庫"
     },
     "AddAlas": {
       "PopupTitle": "新しいコンフィグを追加",

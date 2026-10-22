@@ -2334,8 +2334,32 @@
       "name": "困難圖",
       "help": "執行每日困難圖需要解鎖周回模式，未解鎖前則使用主線圖功能"
     },
-    "HardStage": {
-      "name": "困難地圖",
+    "HardStageMonday": {
+      "name": "週一關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageTuesday": {
+      "name": "週二關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageWednesday": {
+      "name": "週三關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageThursday": {
+      "name": "週四關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageFriday": {
+      "name": "週五關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageSaturday": {
+      "name": "週六關卡",
+      "help": "例如 11-2、12-2、12-4"
+    },
+    "HardStageSunday": {
+      "name": "週日關卡",
       "help": "例如 11-2、12-2、12-4"
     },
     "HardFleet": {
@@ -3395,12 +3419,7 @@
       "Date": "日期",
       "Total": "合計",
       "CubeTotal": "魔方總數",
-      "GemTotal": "鑽石總數",
-      "StorageScan": "倉庫掃描",
-      "LatestScan": "最新掃描",
-      "Amount": "數量",
-      "Change": "較上次",
-      "ScanHistory": "掃描歷史（最近 7 次）"
+      "GemTotal": "鑽石總數"
     },
     "AddAlas": {
       "PopupTitle": "添加新的設定",

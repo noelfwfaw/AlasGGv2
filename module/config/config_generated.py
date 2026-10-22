@@ -368,7 +368,13 @@ class GeneratedConfig:
     Daily_EmergencyModuleDevelopmentFleet = 1  # 1, 2, 3, 4, 5, 6
 
     # Group `Hard`
-    Hard_HardStage = '11-4'
+    Hard_HardStageMonday = '11-4'
+    Hard_HardStageTuesday = '11-4'
+    Hard_HardStageWednesday = '11-4'
+    Hard_HardStageThursday = '11-4'
+    Hard_HardStageFriday = '11-4'
+    Hard_HardStageSaturday = '11-4'
+    Hard_HardStageSunday = '11-4'
     Hard_HardFleet = 1  # 1, 2
 
     # Group `Exercise`

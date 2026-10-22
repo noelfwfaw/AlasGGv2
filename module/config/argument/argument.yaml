@@ -664,7 +664,13 @@ Daily:
     value: 1
     option: [ 1, 2, 3, 4, 5, 6 ]
 Hard:
-  HardStage: 11-4
+  HardStageMonday: 11-4
+  HardStageTuesday: 11-4
+  HardStageWednesday: 11-4
+  HardStageThursday: 11-4
+  HardStageFriday: 11-4
+  HardStageSaturday: 11-4
+  HardStageSunday: 11-4
   HardFleet:
     value: 1
     option: [ 1, 2 ]

@@ -2334,8 +2334,32 @@
       "name": "困难图",
       "help": "运行每日困难图需要解锁周回模式，未解锁前应使用主线图功能"
     },
-    "HardStage": {
-      "name": "困难关卡",
+    "HardStageMonday": {
+      "name": "周一关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageTuesday": {
+      "name": "周二关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageWednesday": {
+      "name": "周三关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageThursday": {
+      "name": "周四关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageFriday": {
+      "name": "周五关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageSaturday": {
+      "name": "周六关卡",
+      "help": "例如 11-2, 12-2, 12-4"
+    },
+    "HardStageSunday": {
+      "name": "周日关卡",
       "help": "例如 11-2, 12-2, 12-4"
     },
     "HardFleet": {
@@ -3395,12 +3419,7 @@
       "Date": "日期",
       "Total": "合计",
       "CubeTotal": "魔方总数",
-      "GemTotal": "钻石总数",
-      "StorageScan": "仓库扫描",
-      "LatestScan": "最新扫描",
-      "Amount": "数量",
-      "Change": "较上次",
-      "ScanHistory": "扫描历史（最近 7 次）"
+      "GemTotal": "钻石总数"
     },
     "AddAlas": {
       "PopupTitle": "添加新配置",

@@ -611,6 +611,14 @@ class ConfigUpdater:
         # ('Coalition.Coalition.Mode', 'Coalition.Coalition.Mode', coalition_to_frostfall),
         # 2025.06.26
         # ('Coalition.Coalition.Mode', 'Coalition.Coalition.Mode', coalition_to_little_academy),
+        # 2026.10.22 困难图改为星期制：旧 HardStage 值自动填充到 7 个星期字段
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageMonday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageTuesday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageWednesday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageThursday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageFriday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSaturday'),
+        ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSunday'),
     ]
 
     # redirection += [
