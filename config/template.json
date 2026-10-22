@@ -2002,28 +2002,6 @@
       "Storage": {}
     }
   },
-  "OpsiCheckLeveling": {
-    "Scheduler": {
-      "Enable": false,
-      "NextRun": "2020-01-01 00:00:00",
-      "Command": "OpsiCheckLeveling",
-      "SuccessInterval": 0,
-      "FailureInterval": 120,
-      "ServerUpdate": "00:00"
-    },
-    "OpsiCheckLeveling": {
-      "TargetLevel": 0,
-      "LastRun": "2020-01-01 00:00:00",
-      "DelayAfterFull": false
-    },
-    "OpsiFleet": {
-      "Fleet": 1,
-      "Submarine": false
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
   "OpsiCrossMonth": {
     "Scheduler": {
       "Enable": false,
