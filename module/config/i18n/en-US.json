@@ -2334,8 +2334,32 @@
       "name": "Hard Settings",
       "help": "Hard mode for chapter must be unlocked, stage must be in 100% CLEAR condition, and auto search is enabled temporarily.\nUse Farm Main task to assist unlocking and achieving 100% CLEAR conditions"
     },
-    "HardStage": {
-      "name": "Hard Stage",
+    "HardStageMonday": {
+      "name": "Monday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageTuesday": {
+      "name": "Tuesday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageWednesday": {
+      "name": "Wednesday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageThursday": {
+      "name": "Thursday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageFriday": {
+      "name": "Friday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageSaturday": {
+      "name": "Saturday Stage",
+      "help": "11-4, 12-2, 12-4, and etc."
+    },
+    "HardStageSunday": {
+      "name": "Sunday Stage",
       "help": "11-4, 12-2, 12-4, and etc."
     },
     "HardFleet": {
@@ -3395,12 +3419,7 @@
       "Date": "Date",
       "Total": "Total",
       "CubeTotal": "Cube Stock",
-      "GemTotal": "Gem Stock",
-      "StorageScan": "Storage Scan",
-      "LatestScan": "Latest scan",
-      "Amount": "Amount",
-      "Change": "Change",
-      "ScanHistory": "Scan history (last 7)"
+      "GemTotal": "Gem Stock"
     },
     "AddAlas": {
       "PopupTitle": "Add new config",

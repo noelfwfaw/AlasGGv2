@@ -1,7 +1,9 @@
 import importlib
+from datetime import datetime
 
 from campaign.campaign_hard.campaign_hard import Campaign
 from module.campaign.run import CampaignRun
+from module.config.utils import server_time_offset
 from module.handler.fast_forward import to_map_file_name
 from module.hard.assets import *
 from module.logger import logger
@@ -14,9 +16,34 @@ class CampaignHard(CampaignRun):
     equipment_has_take_on = False
     campaign: Campaign
 
+    # 每日困难关卡按星期配置，索引与 datetime.weekday() 对应（0=周一）
+    WEEKDAY_STAGES = [
+        'Hard_HardStageMonday',
+        'Hard_HardStageTuesday',
+        'Hard_HardStageWednesday',
+        'Hard_HardStageThursday',
+        'Hard_HardStageFriday',
+        'Hard_HardStageSaturday',
+        'Hard_HardStageSunday',
+    ]
+    WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    def get_stage(self):
+        """
+        按服务器时间取今天星期几对应的困难关卡。
+
+        Returns:
+            str: 今天的困难关卡，如 '11-4'
+        """
+        weekday = (datetime.now() - server_time_offset()).weekday()
+        stage = getattr(self.config, self.WEEKDAY_STAGES[weekday])
+        logger.info(f'Today is {self.WEEKDAY_NAMES[weekday]}, hard stage: {stage}')
+        return stage
+
     def run(self):
         logger.hr('Campaign hard', level=1)
-        name = to_map_file_name(self.config.Hard_HardStage)
+        stage = self.get_stage()
+        name = to_map_file_name(stage)
         self.config.override(
             Campaign_Mode='hard',
             Campaign_UseFleetLock=True,
@@ -36,7 +63,7 @@ class CampaignHard(CampaignRun):
         self.device.screenshot()
         self.campaign.device.image = self.device.image
         self.campaign.ensure_campaign_ui(
-            name=self.config.Hard_HardStage,
+            name=stage,
             mode='hard'
         )
 
