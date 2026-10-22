@@ -44,7 +44,8 @@ class OSCampaignRun(OSMapOperation):
     def opsi_meowfficer_farming(self):
         try:
             campaign = self.load_campaign()
-            campaign.os_check_leveling()
+            # 经验检测（OpsiCheckLeveling）为侵蚀1练级专属功能，
+            # 不在短猫相接中运行，避免练满级后误推迟短猫任务
             campaign.os_meowfficer_farming()
         except ActionPointLimit:
             if get_os_reset_remain() > 0:

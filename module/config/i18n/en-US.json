@@ -254,10 +254,6 @@
       "name": "CL1 Leveling",
       "help": ""
     },
-    "OpsiCheckLeveling": {
-      "name": "Daily Leveling Check",
-      "help": ""
-    },
     "OpsiCrossMonth": {
       "name": "Cross Month Daily",
       "help": "    ALAS will enter OpSi 10min before OpSi reset, wait until OpSi reset but not exit OpSi. Then do the daily, obscure, abyssal and meowfficer farming to get extra gold plates. When running dailies, settings in task \"OpSiDaily\" are used, the rest function are the same.\n    IMPORTANT: Please do not touch the game while ALAS is waiting for OpSi reset."
@@ -2697,7 +2693,7 @@
     },
     "DelayAfterFull": {
       "name": "Delay task when target level reached",
-      "help": "OpsiCheckLeveling.DelayAfterFull.help"
+      "help": "When enabled, the CL1 leveling task will be delayed to the next day and stop leveling today, once all ships in the fleet have reached the target level"
     }
   },
   "IslandProduction": {

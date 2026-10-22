@@ -254,10 +254,6 @@
       "name": "侵蚀1练级",
       "help": ""
     },
-    "OpsiCheckLeveling": {
-      "name": "每日经验检测",
-      "help": ""
-    },
     "OpsiCrossMonth": {
       "name": "跨月每日",
       "help": "    Alas将在大世界跨月重置之前10分钟进入大世界，等待大世界重置但不退出大世界，然后完成新一天的大世界每日、隐秘海域、深渊海域和短猫相接，以获得额外的金菜。运行大世界每日时，按\"大世界每日\"任务设置运行，其余同理。\n    重要：Alas等待跨月期间，请不要操作游戏。"
@@ -2697,7 +2693,7 @@
     },
     "DelayAfterFull": {
       "name": "到达目标等级后推迟任务",
-      "help": "OpsiCheckLeveling.DelayAfterFull.help"
+      "help": "开启后，当出击舰队所有舰船经验都达到目标等级时，侵蚀1练级任务将自动推迟到第二天，停止今天的练级"
     }
   },
   "IslandProduction": {
