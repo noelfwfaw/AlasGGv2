@@ -63,18 +63,20 @@ class LoginHandler(UI):
             # Wait it out instead of clicking. Clicks call stuck_record_clear(),
             # which would keep resetting the stuck timer, so a GameStuckError
             # (and the Restart that follows) could never be raised.
-            if self.handle_manjuu():
+            # JP only: 等黄鸡消失是日服专属需求，其他服保持原版行为，
+            # 不等待、直接走正常点击流程
+            if server.server == 'jp' and self.handle_manjuu():
                 continue
 
             # Login
             if self.match_template_color(LOGIN_CHECK, offset=(30, 30), interval=5):
-                # Only click when login has not succeeded yet, except on jp.
-                # When the network flaps the jp client drops back to the title
-                # screen after the manjuu loading ends, so the screen has to be
-                # tapped again. Keeping the gate there made the loop idle until
-                # the outer 600s app_restart timeout and restarted a game that
-                # was already waiting for a tap.
-                if not login_success or server.server == 'jp':
+                if server.server == 'jp':
+                    # Only click when login has not succeeded yet, except on jp.
+                    # When the network flaps the jp client drops back to the title
+                    # screen after the manjuu loading ends, so the screen has to be
+                    # tapped again. Keeping the gate there made the loop idle until
+                    # the outer 600s app_restart timeout and restarted a game that
+                    # was already waiting for a tap.
                     self.device.click(LOGIN_CHECK)
                     if not login_success:
                         logger.info('Login success')
@@ -84,6 +86,13 @@ class LoginHandler(UI):
                         # stuck_timer_long on manjuu/waiting before login_success; the
                         # post-login main-page loading deserves a fresh timeout window.
                         self.device.stuck_record_clear()
+                else:
+                    # 非 jp 保持原版行为：LOGIN_CHECK 匹配即点击，
+                    # 避免 manjuu / 加载误检把登录循环卡住半天
+                    self.device.click(LOGIN_CHECK)
+                    if not login_success:
+                        logger.info('Login success')
+                        login_success = True
             if self.appear(ANDROID_NO_RESPOND, offset=(30, 30), interval=5):
                 logger.warning('Emulator no respond')
                 self.device.click_record_add(ANDROID_NO_RESPOND)
