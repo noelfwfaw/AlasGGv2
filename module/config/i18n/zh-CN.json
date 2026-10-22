@@ -2332,31 +2332,31 @@
     },
     "HardStageMonday": {
       "name": "周一关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageTuesday": {
       "name": "周二关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageWednesday": {
       "name": "周三关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageThursday": {
       "name": "周四关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageFriday": {
       "name": "周五关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageSaturday": {
       "name": "周六关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardStageSunday": {
       "name": "周日关卡",
-      "help": "例如 11-2, 12-2, 12-4"
+      "help": "该星期出击的困难关卡，任务按服务器时间自动选择当天对应的关卡。例如 11-2, 12-2, 12-4"
     },
     "HardFleet": {
       "name": "出击舰队",
@@ -3024,7 +3024,7 @@
   "GGHandler": {
     "_info": {
       "name": "GG管理器",
-      "help": ""
+      "help": "GG加速器自动管理：防弹窗、游戏崩溃自动重启、倍率设置与维持。使用前需在模拟器安装GG，并正确填写GG包名"
     },
     "Enabled": {
       "name": "启用该功能",
@@ -3079,243 +3079,243 @@
     },
     "Exercise": {
       "name": "演习",
-      "help": ""
+      "help": "演习前排战力阈值，超过则先重启并启用GG倍率再出击"
     },
     "Raid": {
       "name": "共斗",
-      "help": ""
+      "help": "共斗前排战力阈值，超过则先重启并启用GG倍率再出击"
     },
     "Ash": {
       "name": "余烬信标",
-      "help": ""
+      "help": "余烬信标前排战力阈值，超过则先重启并启用GG倍率再出击"
     }
   },
   "Oil": {
     "_info": {
-      "name": "Oil._info.name",
-      "help": "Oil._info.help"
+      "name": "石油",
+      "help": "石油资源记录：出击后自动更新，用于仪表盘卡片展示与每日获取量统计"
     },
     "Value": {
-      "name": "Oil.Value.name",
-      "help": "Oil.Value.help"
+      "name": "当前值",
+      "help": "当前石油数量（自动记录，一般无需手动修改）"
     },
     "Limit": {
-      "name": "Oil.Limit.name",
-      "help": "Oil.Limit.help"
+      "name": "下限",
+      "help": "出击保护下限，低于该值不出击（0 表示不启用）"
     },
     "Color": {
-      "name": "Oil.Color.name",
-      "help": "Oil.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Oil.Record.name",
-      "help": "Oil.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Coin": {
     "_info": {
-      "name": "Coin._info.name",
-      "help": "Coin._info.help"
+      "name": "金币",
+      "help": "金币资源记录：出击后自动更新，用于仪表盘卡片展示与每日获取量统计"
     },
     "Value": {
-      "name": "Coin.Value.name",
-      "help": "Coin.Value.help"
+      "name": "当前值",
+      "help": "当前金币数量（自动记录，一般无需手动修改）"
     },
     "Limit": {
-      "name": "Coin.Limit.name",
-      "help": "Coin.Limit.help"
+      "name": "下限",
+      "help": "出击保护下限，低于该值不出击（0 表示不启用）"
     },
     "Color": {
-      "name": "Coin.Color.name",
-      "help": "Coin.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Coin.Record.name",
-      "help": "Coin.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Gem": {
     "_info": {
-      "name": "Gem._info.name",
-      "help": "Gem._info.help"
+      "name": "钻石",
+      "help": "钻石资源记录：商店购买后自动更新，用于仪表盘卡片展示与每日获取量统计"
     },
     "Value": {
-      "name": "Gem.Value.name",
-      "help": "Gem.Value.help"
+      "name": "当前值",
+      "help": "当前钻石数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Gem.Color.name",
-      "help": "Gem.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Gem.Record.name",
-      "help": "Gem.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Pt": {
     "_info": {
-      "name": "Pt._info.name",
-      "help": "Pt._info.help"
+      "name": "Pt",
+      "help": "Pt 资源记录：出击后自动更新，用于仪表盘卡片展示（活动结束后会清零）"
     },
     "Value": {
-      "name": "Pt.Value.name",
-      "help": "Pt.Value.help"
+      "name": "当前值",
+      "help": "当前 Pt 数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Pt.Color.name",
-      "help": "Pt.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Pt.Record.name",
-      "help": "Pt.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "YellowCoin": {
     "_info": {
-      "name": "YellowCoin._info.name",
-      "help": "YellowCoin._info.help"
+      "name": "金硬币",
+      "help": "大世界金硬币（金菜）记录：大世界任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "YellowCoin.Value.name",
-      "help": "YellowCoin.Value.help"
+      "name": "当前值",
+      "help": "当前金硬币数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "YellowCoin.Color.name",
-      "help": "YellowCoin.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "YellowCoin.Record.name",
-      "help": "YellowCoin.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "PurpleCoin": {
     "_info": {
-      "name": "PurpleCoin._info.name",
-      "help": "PurpleCoin._info.help"
+      "name": "紫硬币",
+      "help": "大世界紫硬币记录：大世界任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "PurpleCoin.Value.name",
-      "help": "PurpleCoin.Value.help"
+      "name": "当前值",
+      "help": "当前紫硬币数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "PurpleCoin.Color.name",
-      "help": "PurpleCoin.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "PurpleCoin.Record.name",
-      "help": "PurpleCoin.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "ActionPoint": {
     "_info": {
-      "name": "ActionPoint._info.name",
-      "help": "ActionPoint._info.help"
+      "name": "行动点",
+      "help": "大世界行动点记录：行动点相关任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "ActionPoint.Value.name",
-      "help": "ActionPoint.Value.help"
+      "name": "当前值",
+      "help": "当前行动点数量（自动记录，一般无需手动修改）"
     },
     "Total": {
-      "name": "ActionPoint.Total.name",
-      "help": "ActionPoint.Total.help"
+      "name": "上限",
+      "help": "行动点上限值（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "ActionPoint.Color.name",
-      "help": "ActionPoint.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "ActionPoint.Record.name",
-      "help": "ActionPoint.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Merit": {
     "_info": {
-      "name": "Merit._info.name",
-      "help": "Merit._info.help"
+      "name": "功勋",
+      "help": "功勋资源记录：商店任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "Merit.Value.name",
-      "help": "Merit.Value.help"
+      "name": "当前值",
+      "help": "当前功勋数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Merit.Color.name",
-      "help": "Merit.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Merit.Record.name",
-      "help": "Merit.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Cube": {
     "_info": {
-      "name": "Cube._info.name",
-      "help": "Cube._info.help"
+      "name": "魔方",
+      "help": "魔方资源记录：建造、领取委托奖励后自动更新，用于仪表盘卡片展示与每日获取量统计"
     },
     "Value": {
-      "name": "Cube.Value.name",
-      "help": "Cube.Value.help"
+      "name": "当前值",
+      "help": "当前魔方数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Cube.Color.name",
-      "help": "Cube.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Cube.Record.name",
-      "help": "Cube.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Core": {
     "_info": {
-      "name": "Core._info.name",
-      "help": "Core._info.help"
+      "name": "核心数据",
+      "help": "核心数据记录：商店任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "Core.Value.name",
-      "help": "Core.Value.help"
+      "name": "当前值",
+      "help": "当前核心数据数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Core.Color.name",
-      "help": "Core.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Core.Record.name",
-      "help": "Core.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Medal": {
     "_info": {
-      "name": "Medal._info.name",
-      "help": "Medal._info.help"
+      "name": "勋章",
+      "help": "勋章资源记录：商店任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "Medal.Value.name",
-      "help": "Medal.Value.help"
+      "name": "当前值",
+      "help": "当前勋章数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "Medal.Color.name",
-      "help": "Medal.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "Medal.Record.name",
-      "help": "Medal.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "GuildCoin": {
     "_info": {
-      "name": "GuildCoin._info.name",
-      "help": "GuildCoin._info.help"
+      "name": "大舰队币",
+      "help": "大舰队币资源记录：商店任务运行后自动更新，用于仪表盘卡片展示"
     },
     "Value": {
-      "name": "GuildCoin.Value.name",
-      "help": "GuildCoin.Value.help"
+      "name": "当前值",
+      "help": "当前大舰队币数量（自动记录，一般无需手动修改）"
     },
     "Color": {
-      "name": "GuildCoin.Color.name",
-      "help": "GuildCoin.Color.help"
+      "name": "卡片颜色",
+      "help": "仪表盘卡片颜色（内部使用，不显示）"
     },
     "Record": {
-      "name": "GuildCoin.Record.name",
-      "help": "GuildCoin.Record.help"
+      "name": "记录时间",
+      "help": "上次记录时间（自动更新）"
     }
   },
   "Storage": {
@@ -3324,8 +3324,8 @@
       "help": "存放任务内部状态，任务异常时可以手动清除"
     },
     "Storage": {
-      "name": "Storage.Storage.name",
-      "help": "Storage.Storage.help"
+      "name": "内部状态",
+      "help": "任务内部状态存储，一般无需修改"
     }
   },
   "Gui": {
