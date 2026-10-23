@@ -180,6 +180,19 @@ class MaaEmulator:
         except Exception:
             return False
 
+    @staticmethod
+    def shell(serial, command, timeout=2):
+        """
+        在设备上执行一条 adb shell 命令。
+
+        AdbClient.shell 不检查退出码，`pidof` 找不到进程时只会返回空字符串而不是抛异常；
+        设备离线、adb 超时才会抛异常，调用方需要自己区分这两种情况。
+
+        Returns:
+            str: 命令输出
+        """
+        return MaaEmulator.adb_client().shell(serial, command, timeout=timeout)
+
     def wait_online(self, instance, timeout=180):
         """
         等待模拟器真的可用：adb 上线且系统启动完成。

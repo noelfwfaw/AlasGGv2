@@ -54,13 +54,22 @@ class MaaDevice(FakeDevice):
     MAA 插件专用的设备层。
 
     其余方法（app_stop、release_during_wait、stuck_record_clear 等）仍走 FakeDevice 的空实现，
-    这里只额外提供模拟器的存活检查与启停，供调度器复用 ALAS 主模块的调度循环。
+    这里只额外提供模拟器存活检查与游戏运行状态判定，供调度器复用 ALAS 主模块的调度循环。
     """
+
+    # MAA 的 resource/config.json 读不到时使用的兜底映射
+    GAME_PACKAGE = {
+        'Official': 'com.hypergryph.arknights',
+        'Bilibili': 'com.hypergryph.arknights.bilibili',
+        'YoStarEN': 'com.YoStarEN.Arknights',
+        'YoStarJP': 'com.YoStarJP.Arknights',
+        'YoStarKR': 'com.YoStarKR.Arknights',
+        'txwy': 'tw.txwy.and.arknights',
+    }
 
     def __init__(self, script=None):
         self.script = script
         self.config = None
-        self.emulator_restarted = False
 
     @property
     def _config(self):
@@ -79,16 +88,103 @@ class MaaDevice(FakeDevice):
             return True
         return MaaEmulator().alive(config.MaaEmulator_Serial)
 
+    def game_package(self):
+        """
+        当前服务器对应的游戏包名。
+
+        优先读 MAA 自己的 `<MaaPath>/resource/config.json` 里的 packageName 表（MAA 维护，更抗更新），
+        读不到再用内置映射；两者都拿不到时返回 None，调用方应当跳过游戏判据而不是判定「游戏没开」。
+
+        Returns:
+            str | None:
+        """
+        config = self._config
+        if config is None:
+            return None
+
+        client = config.MaaEmulator_PackageName
+        package = self._package_from_resource(config.MaaEmulator_MaaPath, client)
+        if package:
+            return package
+
+        package = self.GAME_PACKAGE.get(client)
+        if package:
+            return package
+
+        logger.warning(f'无法确定 {client} 的游戏包名，跳过游戏运行状态检查')
+        return None
+
+    @staticmethod
+    def _package_from_resource(path, client):
+        if not path:
+            return None
+
+        file = os.path.join(path, 'resource', 'config.json')
+        try:
+            with open(file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            logger.info(e)
+            return None
+
+        packages = data.get('packageName', None)
+        if not isinstance(packages, dict):
+            return None
+        package = packages.get(client, None)
+        if isinstance(package, str) and package:
+            return package
+        return None
+
+    def game_alive(self, timeout=2):
+        """
+        游戏进程是否在运行。
+
+        设备不在线时直接返回 False —— 此时 adb 必然失败，不能把它当成「游戏没开」，所以调用方
+        必须先确认模拟器在线（emulator_check）再来问游戏。
+
+        Returns:
+            bool: True 表示在运行或无法判定（宁可漏判也不误判）
+        """
+        if not IS_WINDOWS:
+            return True
+        if not self.device_alive():
+            return False
+
+        config = self._config
+        if config is None:
+            return True
+        package = self.game_package()
+        if package is None:
+            return True
+
+        emulator = MaaEmulator()
+        serial = config.MaaEmulator_Serial
+        # pidof 在个别魔改镜像上不可用，用 ps 兜底；adb 抖动导致的一次失败重试一次
+        for _ in range(2):
+            try:
+                if emulator.shell(serial, f'pidof {package}', timeout=timeout).strip():
+                    return True
+            except Exception as e:
+                logger.info(e)
+            try:
+                if package in emulator.shell(serial, 'ps -A', timeout=timeout):
+                    return True
+            except Exception as e:
+                logger.info(e)
+
+        return False
+
     def emulator_check(self):
         """
         运行期设备检查：模拟器不在时拉起它，并重连 MaaCore。
 
-        拉起成功后设置 emulator_restarted，由 get_next_task() 决定是否补一次开始唤醒。
+        这里只关心 adb 是否可达；拉起后游戏有没有起来，交给游戏层的 game_alive() 判断。
 
         Returns:
             bool: False 表示无法恢复，调用方应 RequestHumanTakeover
         """
-        self.emulator_restarted = False
         if not IS_WINDOWS:
             return True
 
@@ -130,8 +226,7 @@ class MaaDevice(FakeDevice):
                 config.MaaEmulator_Serial = serial
 
             self.maa_reconnect()
-            self.emulator_restarted = True
-            logger.info(f'模拟器已启动：{serial}')
+            logger.info(f'模拟器已重启：{serial}')
             return True
         except RequestHumanTakeover:
             # 连接 MaaCore 失败属于需要人工介入的判断，交给上层直接退出
@@ -170,6 +265,10 @@ class MaaDevice(FakeDevice):
 
 
 class ArknightsAutoScript(AzurLaneAutoScript):
+    # 本次「游戏未运行」是否已经插过一次开始唤醒；开始唤醒之后的第一个任务真正执行时重置。
+    # 只作为初值，赋值都发生在实例上。
+    _maa_wake_attempted = False
+
     @cached_property
     def device(self):
         return MaaDevice(self)
@@ -370,13 +469,12 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         任务队列清空（等待下一个任务）时的收尾动作，
         对应 MAA 设置页「优化设置 - 完成所有任务后」。
 
-        Returns:
-            bool: True 表示游戏已被关闭，下个任务开始前需要补一次开始唤醒
+        关游戏失败不需要在这里兜底，下个任务开始前的游戏判据会再补一次开始唤醒。
         """
         method = self.config.Optimization_WhenTaskQueueEmpty
         if method != 'close_game':
             logger.info('所有任务已完成，游戏停留在主页面待机')
-            return False
+            return
 
         logger.info('所有任务已完成，正在关闭游戏')
         try:
@@ -387,9 +485,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             })
         except Exception as e:
             logger.exception(e)
-            logger.warning('关闭游戏失败，将保持游戏运行')
-            return False
-        return True
+            logger.warning('关闭游戏失败，下个任务开始前会重新唤醒游戏')
 
     def maa_reconnect(self):
         """
@@ -439,7 +535,9 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         MAA 插件既没有自己的 device 也没有 Restart 任务，所以：
         - 关闭游戏：等待期间由这里直接调用 MAA 的 CloseDown；
         - 关闭模拟器：CloseDown 之后再关闭模拟器，下个任务开始前重新拉起。
-        下个任务开始前再补一次「开始唤醒」把游戏拉起来。
+
+        任务到点后先确认模拟器在线（设备层），再确认游戏在运行（游戏层），
+        游戏没起就先补一次开始唤醒。
         """
         while 1:
             task = self.config.get_next()
@@ -450,12 +548,13 @@ class ArknightsAutoScript(AzurLaneAutoScript):
                 logger.info(f'Wait until {task.next_run} for task `{task.command}`')
                 self.is_first_task = False
                 method = self.config.Optimization_WhenTaskQueueEmpty
-                needs_startup = False
                 if method == 'close_emulator':
                     self.maa_stop_during_wait()
                     needs_startup = True
                 else:
-                    needs_startup = self.maa_close_game_during_wait()
+                    self.maa_close_game_during_wait()
+                    # 不依赖 CloseDown 的返回值：关失败了，任务边界的游戏判据也会发现游戏还在
+                    needs_startup = method == 'close_game'
                 if needs_startup:
                     # 先排一次开始唤醒，等待期间配置被改动也不会带着关掉的游戏去跑任务
                     self.config.task_call('MaaStartup')
@@ -473,12 +572,22 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             if not device.emulator_check():
                 logger.critical('Request human takeover')
                 raise RequestHumanTakeover
-            if device.emulator_restarted and task.command != 'MaaStartup':
-                # 模拟器刚启动，游戏还没起来，先补一次开始唤醒
-                logger.info('模拟器刚启动，先补一次开始唤醒')
-                self.config.task_call('MaaStartup')
-                del_cached_property(self, 'config')
-                continue
+
+            # 设备在线但游戏没起（手动关闭、崩溃、模拟器刚重启），先补一次开始唤醒
+            if task.command != 'MaaStartup':
+                if not device.game_alive():
+                    if self._maa_wake_attempted:
+                        logger.critical(
+                            '开始唤醒后游戏仍未运行，请检查账号登录、游戏更新或 MAA 日志'
+                        )
+                        raise RequestHumanTakeover
+                    logger.critical('游戏未运行，先执行开始唤醒')
+                    self._maa_wake_attempted = True
+                    self.config.task_call('MaaStartup')
+                    del_cached_property(self, 'config')
+                    continue
+                # 游戏在运行，说明上一次唤醒已经生效，下次掉线时重新允许插一次唤醒
+                self._maa_wake_attempted = False
 
             break
 
