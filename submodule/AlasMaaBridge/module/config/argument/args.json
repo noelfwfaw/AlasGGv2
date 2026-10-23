@@ -50,6 +50,25 @@
         "value": false
       }
     },
+    "MaaUpdate": {
+      "AutoUpdateResource": {
+        "type": "checkbox",
+        "value": true
+      },
+      "UpdatePackage": {
+        "type": "checkbox",
+        "value": false
+      },
+      "VersionType": {
+        "type": "select",
+        "value": "Stable",
+        "option": [
+          "Stable",
+          "Beta",
+          "Nightly"
+        ]
+      }
+    },
     "Emulator": {
       "ServerName": {
         "type": "input",
@@ -71,9 +90,12 @@
     },
     "Optimization": {
       "WhenTaskQueueEmpty": {
-        "type": "input",
+        "type": "select",
         "value": "stay_there",
-        "display": "hide"
+        "option": [
+          "stay_there",
+          "close_game"
+        ]
       }
     },
     "Storage": {
@@ -893,6 +915,10 @@
       }
     },
     "MaaAward": {
+      "DailyAward": {
+        "type": "checkbox",
+        "value": true
+      },
       "Mail": {
         "type": "checkbox",
         "value": false
@@ -905,7 +931,15 @@
         "type": "checkbox",
         "value": false
       },
+      "Mining": {
+        "type": "checkbox",
+        "value": false
+      },
       "Specialaccess": {
+        "type": "checkbox",
+        "value": false
+      },
+      "SignInEvent": {
         "type": "checkbox",
         "value": false
       }
@@ -954,12 +988,14 @@
     "MaaRoguelike": {
       "Theme": {
         "type": "select",
-        "value": "Sami",
+        "value": "Sarkaz",
         "option": [
           "Phantom",
           "Mizuki",
           "Sami",
-          "Sarkaz"
+          "Sarkaz",
+          "JieGarden",
+          "BlackFlow"
         ]
       },
       "Mode": {
@@ -968,12 +1004,48 @@
         "option": [
           0,
           1,
-          4
+          4,
+          5,
+          6,
+          7,
+          10001,
+          20001,
+          30001,
+          30003
+        ]
+      },
+      "Difficulty": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
         ]
       },
       "StartsCount": {
         "type": "input",
         "value": 9999999
+      },
+      "InvestmentEnabled": {
+        "type": "checkbox",
+        "value": true
       },
       "InvestmentsCount": {
         "type": "input",
@@ -983,30 +1055,65 @@
         "type": "checkbox",
         "value": false
       },
+      "InvestmentWithMoreScore": {
+        "type": "checkbox",
+        "value": false
+      },
+      "StopAtFinalBoss": {
+        "type": "checkbox",
+        "value": false
+      },
+      "StopAtMaxLevel": {
+        "type": "checkbox",
+        "value": false
+      },
       "Squad": {
         "type": "select",
         "value": "指挥分队",
         "option": [
-          "魂灵护送分队",
-          "博闻广记分队",
-          "蓝图测绘分队",
-          "因地制宜分队",
-          "永恒狩猎分队",
-          "生活至上分队",
-          "科学主义分队",
-          "特训分队",
-          "心胜于物分队",
-          "物尽其用分队",
-          "以人为本分队",
           "指挥分队",
-          "集群分队",
           "后勤分队",
-          "矛头分队",
           "突击战术分队",
           "堡垒战术分队",
           "远程战术分队",
           "破坏战术分队",
+          "集群分队",
+          "矛头分队",
           "研究分队",
+          "心胜于物分队",
+          "物尽其用分队",
+          "以人为本分队",
+          "永恒狩猎分队",
+          "生活至上分队",
+          "科学主义分队",
+          "特训分队",
+          "魂灵护送分队",
+          "博闻广记分队",
+          "蓝图测绘分队",
+          "因地制宜分队",
+          "异想天开分队",
+          "点刺成锭分队",
+          "拟态学者分队",
+          "专业人士分队",
+          "特勤分队",
+          "高台突破分队",
+          "地面突破分队",
+          "游客分队",
+          "司岁台分队",
+          "天师府分队",
+          "花团锦簇分队",
+          "棋行险着分队",
+          "岁影回音分队",
+          "代理人分队",
+          "知学分队",
+          "商贾分队",
+          "本源研修分队",
+          "文明开化分队",
+          "开拓者分队",
+          "多边贸易分队",
+          "地质调查分队",
+          "团结阵线分队",
+          "踏足遍历分队",
           "高规格分队"
         ]
       },
@@ -1017,6 +1124,8 @@
           "先手必胜",
           "稳扎稳打",
           "取长补短",
+          "灵活部署",
+          "坚不可摧",
           "随心所欲"
         ]
       },
@@ -1045,6 +1154,72 @@
       "refreshTraderWithDice": {
         "type": "checkbox",
         "value": false
+      },
+      "CollectibleModeShopping": {
+        "type": "checkbox",
+        "value": false
+      },
+      "CollectibleModeSquad": {
+        "type": "input",
+        "value": null
+      },
+      "CollectibleModeRewards": {
+        "type": "textarea",
+        "value": "热水壶 > 希望"
+      },
+      "SamiFirstFloorFoldartal": {
+        "type": "input",
+        "value": null
+      },
+      "SamiStartFoldartals": {
+        "type": "textarea",
+        "value": null
+      },
+      "ExpectedCollapsalParadigms": {
+        "type": "textarea",
+        "value": "目空一些 > 睁眼瞎 > 图像损坏 > 一抹黑"
+      },
+      "MonthlySquadAutoIterate": {
+        "type": "checkbox",
+        "value": true
+      },
+      "MonthlySquadCheckComms": {
+        "type": "checkbox",
+        "value": false
+      },
+      "DeepExplorationAutoIterate": {
+        "type": "checkbox",
+        "value": true
+      },
+      "FindPlaytimeTarget": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          1,
+          2,
+          3
+        ]
+      },
+      "StartWithSeed": {
+        "type": "input",
+        "value": null
+      },
+      "BlackFlowStrategy": {
+        "type": "select",
+        "value": "ending1",
+        "option": [
+          "ending1",
+          "ending2",
+          "ending3"
+        ]
+      },
+      "BlackFlowStartAnimals": {
+        "type": "textarea",
+        "value": null
+      },
+      "BlackFlowStartRewards": {
+        "type": "textarea",
+        "value": null
       }
     },
     "Storage": {
@@ -1088,6 +1263,145 @@
         "display": "hide"
       }
     },
+    "MaaReclamation": {
+      "Theme": {
+        "type": "select",
+        "value": "Tales",
+        "option": [
+          "Tales",
+          "RelaunchAnchor"
+        ]
+      },
+      "Mode": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1,
+          16,
+          32,
+          48
+        ]
+      },
+      "ClearStore": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ToolsToCraft": {
+        "type": "textarea",
+        "value": "荧光棒"
+      },
+      "IncrementMode": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1
+        ]
+      },
+      "NumCraftBatches": {
+        "type": "input",
+        "value": 16
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "MaaDataUpdate": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 04:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "MaaDataUpdate",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 60,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "04:00",
+        "display": "hide"
+      }
+    },
+    "MaaDataUpdate": {
+      "UpdateOperBox": {
+        "type": "checkbox",
+        "value": true
+      },
+      "UpdateDepot": {
+        "type": "checkbox",
+        "value": true
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "MaaOperProgress": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 04:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "MaaOperProgress",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 60,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "04:00",
+        "display": "hide"
+      }
+    },
+    "MaaOperProgress": {
+      "Plans": {
+        "type": "textarea",
+        "value": "[]"
+      }
+    },
     "Storage": {
       "Storage": {
         "type": "storage",
@@ -1116,6 +1430,16 @@
         "value": 1
       }
     },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "MaaUpdate": {
     "Storage": {
       "Storage": {
         "type": "storage",

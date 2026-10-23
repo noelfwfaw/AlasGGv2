@@ -11,6 +11,7 @@ Maa:
     Maa:
       - MaaEmulator
       - MaaRecord
+      - MaaUpdate
       - Emulator
       - Error
       - Optimization
@@ -44,6 +45,13 @@ Maa:
       - MaaRoguelike
     MaaReclamationAlgorithm:
       - Scheduler
+      - MaaReclamation
+    MaaDataUpdate:
+      - Scheduler
+      - MaaDataUpdate
+    MaaOperProgress:
+      - Scheduler
+      - MaaOperProgress
 
 # ==================== Tool ====================
 
@@ -53,3 +61,4 @@ Tool:
   tasks:
     MaaCopilot:
       - MaaCopilot
+    MaaUpdate: []

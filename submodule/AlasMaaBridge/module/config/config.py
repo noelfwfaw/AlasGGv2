@@ -16,6 +16,7 @@ class ArknightsConfig(AzurLaneConfig, ConfigUpdater, GeneratedConfig):
             > MaaAnnihilation > MaaMaterial
             > MaaFight > MaaAward
             > MaaReclamationAlgorithm
+            > MaaDataUpdate > MaaOperProgress
             > MaaRoguelike
             """
 

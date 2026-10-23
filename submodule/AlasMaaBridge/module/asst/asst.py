@@ -20,16 +20,18 @@ class Asst:
         ``param3 arg``:     自定义参数
     """
 
+    # 已加载的动态库，避免重复 LoadLibrary
+    __lib = None
+    __libpath = None
+
     @staticmethod
-    def load(path: Union[pathlib.Path, str], incremental_path: Optional[Union[pathlib.Path, str, list]] = None,
-             user_dir: Optional[Union[pathlib.Path, str]] = None) -> bool:
+    def load_library(path: Union[pathlib.Path, str]) -> bool:
         """
-        加载 dll 及资源
+        只加载动态库，不加载资源。
+        用于查询版本号等不需要资源的轻量操作（如更新器）。
 
         :params:
-            ``path``:    DLL及资源所在文件夹路径
-            ``incremental_path``:   增量资源所在文件夹路径
-            ``user_dir``:   用户数据（日志、调试图片等）写入文件夹路径
+            ``path``:    DLL 所在文件夹路径
         """
 
         platform_values = {
@@ -53,13 +55,33 @@ class Asst:
         else:
             lib_import_func = ctypes.CDLL
 
-        Asst.__libpath = pathlib.Path(path) / platform_values[platform_type]['libpath']
+        libpath = pathlib.Path(path) / platform_values[platform_type]['libpath']
+        if Asst.__lib is not None and Asst.__libpath is not None \
+                and os.path.abspath(str(Asst.__libpath)) == os.path.abspath(str(libpath)):
+            return True
+
         try:
             os.environ[platform_values[platform_type]['environ_var']] += os.pathsep + str(path)
         except KeyError:
             os.environ[platform_values[platform_type]['environ_var']] = os.pathsep + str(path)
-        Asst.__lib = lib_import_func(str(Asst.__libpath))
+
+        Asst.__libpath = libpath
+        Asst.__lib = lib_import_func(str(libpath))
         Asst.__set_lib_properties()
+        return True
+
+    @staticmethod
+    def load_resource(path: Union[pathlib.Path, str],
+                      incremental_path: Optional[Union[pathlib.Path, str, list]] = None,
+                      user_dir: Optional[Union[pathlib.Path, str]] = None) -> bool:
+        """
+        加载资源（主资源 + 增量资源）
+
+        :params:
+            ``path``:    DLL及资源所在文件夹路径
+            ``incremental_path``:   增量资源所在文件夹路径
+            ``user_dir``:   用户数据（日志、调试图片等）写入文件夹路径
+        """
 
         ret: bool = True
         if user_dir:
@@ -76,6 +98,21 @@ class Asst:
                     str(incremental_path).encode('utf-8'))
 
         return ret
+
+    @staticmethod
+    def load(path: Union[pathlib.Path, str], incremental_path: Optional[Union[pathlib.Path, str, list]] = None,
+             user_dir: Optional[Union[pathlib.Path, str]] = None) -> bool:
+        """
+        加载 dll 及资源
+
+        :params:
+            ``path``:    DLL及资源所在文件夹路径
+            ``incremental_path``:   增量资源所在文件夹路径
+            ``user_dir``:   用户数据（日志、调试图片等）写入文件夹路径
+        """
+
+        Asst.load_library(path)
+        return Asst.load_resource(path, incremental_path=incremental_path, user_dir=user_dir)
 
     def __init__(self, callback: CallBackType = None, arg=None):
         """

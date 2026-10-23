@@ -12,6 +12,11 @@
       "PenguinID": null,
       "ReportToYiTuLiu": false
     },
+    "MaaUpdate": {
+      "AutoUpdateResource": true,
+      "UpdatePackage": false,
+      "VersionType": "Stable"
+    },
     "Emulator": {
       "ServerName": "disabled"
     },
@@ -208,10 +213,13 @@
       "ServerUpdate": "04:00, 16:00"
     },
     "MaaAward": {
+      "DailyAward": true,
       "Mail": false,
       "Recruit": false,
       "Orundum": false,
-      "Specialaccess": false
+      "Mining": false,
+      "Specialaccess": false,
+      "SignInEvent": false
     },
     "Storage": {
       "Storage": {}
@@ -229,15 +237,34 @@
     "MaaRoguelike": {
       "Theme": "Sarkaz",
       "Mode": 0,
+      "Difficulty": 0,
       "StartsCount": 9999999,
+      "InvestmentEnabled": true,
       "InvestmentsCount": 9999999,
       "StopWhenInvestmentFull": false,
+      "InvestmentWithMoreScore": false,
+      "StopAtFinalBoss": false,
+      "StopAtMaxLevel": false,
       "Squad": "指挥分队",
       "Roles": "取长补短",
       "CoreChar": null,
       "Support": "no_use",
       "startWithEliteTwo": "no_use",
-      "refreshTraderWithDice": false
+      "refreshTraderWithDice": false,
+      "CollectibleModeShopping": false,
+      "CollectibleModeSquad": null,
+      "CollectibleModeRewards": "热水壶 > 希望",
+      "SamiFirstFloorFoldartal": null,
+      "SamiStartFoldartals": null,
+      "ExpectedCollapsalParadigms": "目空一些 > 睁眼瞎 > 图像损坏 > 一抹黑",
+      "MonthlySquadAutoIterate": true,
+      "MonthlySquadCheckComms": false,
+      "DeepExplorationAutoIterate": true,
+      "FindPlaytimeTarget": 1,
+      "StartWithSeed": null,
+      "BlackFlowStrategy": "ending1",
+      "BlackFlowStartAnimals": null,
+      "BlackFlowStartRewards": null
     },
     "Storage": {
       "Storage": {}
@@ -252,6 +279,47 @@
       "FailureInterval": 120,
       "ServerUpdate": "04:00"
     },
+    "MaaReclamation": {
+      "Theme": "Tales",
+      "Mode": 0,
+      "ClearStore": false,
+      "ToolsToCraft": "荧光棒",
+      "IncrementMode": 0,
+      "NumCraftBatches": 16
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "MaaDataUpdate": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 04:00:00",
+      "Command": "MaaDataUpdate",
+      "SuccessInterval": 60,
+      "FailureInterval": 120,
+      "ServerUpdate": "04:00"
+    },
+    "MaaDataUpdate": {
+      "UpdateOperBox": true,
+      "UpdateDepot": true
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "MaaOperProgress": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 04:00:00",
+      "Command": "MaaOperProgress",
+      "SuccessInterval": 60,
+      "FailureInterval": 120,
+      "ServerUpdate": "04:00"
+    },
+    "MaaOperProgress": {
+      "Plans": "[]"
+    },
     "Storage": {
       "Storage": {}
     }
@@ -263,6 +331,11 @@
       "Formation": false,
       "Cycle": 1
     },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "MaaUpdate": {
     "Storage": {
       "Storage": {}
     }

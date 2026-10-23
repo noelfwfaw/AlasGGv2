@@ -5,8 +5,8 @@
       "help": "Menu.Maa.help"
     },
     "Tool": {
-      "name": "Menu.Tool.name",
-      "help": "Menu.Tool.help"
+      "name": "工具",
+      "help": ""
     }
   },
   "Task": {
@@ -43,8 +43,8 @@
       "help": "Task.MaaMall.help"
     },
     "MaaAward": {
-      "name": "Task.MaaAward.name",
-      "help": "Task.MaaAward.help"
+      "name": "領取獎勵",
+      "help": "領取每日任務、郵件、活動等各類獎勵"
     },
     "MaaRoguelike": {
       "name": "Task.MaaRoguelike.name",
@@ -52,11 +52,23 @@
     },
     "MaaReclamationAlgorithm": {
       "name": "Task.MaaReclamationAlgorithm.name",
-      "help": "Task.MaaReclamationAlgorithm.help"
+      "help": "需要先手動進入生息演算一次，讓遊戲裡存在對應的存檔/入口"
+    },
+    "MaaDataUpdate": {
+      "name": "更新資料",
+      "help": "識別幹員 box 與倉庫，結果保存在 config/maa 下"
+    },
+    "MaaOperProgress": {
+      "name": "幹員培養",
+      "help": "自動精英化、升技能、專精\n建議先執行一次「更新資料」，讓 MAA 取得最新的倉庫快取"
     },
     "MaaCopilot": {
       "name": "Task.MaaCopilot.name",
       "help": "Task.MaaCopilot.help"
+    },
+    "MaaUpdate": {
+      "name": "更新 MAA",
+      "help": "立即檢查並更新 MAA 的任務資源與本體"
     }
   },
   "Scheduler": {
@@ -119,8 +131,10 @@
       "help": ""
     },
     "WhenTaskQueueEmpty": {
-      "name": "當任務隊列清空後",
-      "help": "無任務時關閉遊戲，能在收菜期間降低 CPU 佔用"
+      "name": "完成所有任務後",
+      "help": "所有 MAA 任務完成後，等待下一個任務（或下次執行）時的動作\n主頁面待機：不做額外動作，MAA 任務結束後遊戲一般就停在主頁面\n關閉遊戲：用 MAA 關閉遊戲客戶端，等待期間可以降低 CPU 佔用，下個任務開始前會自動重新啟動遊戲",
+      "stay_there": "主頁面待機",
+      "close_game": "關閉遊戲"
     }
   },
   "MaaEmulator": {
@@ -174,6 +188,27 @@
     "ReportToYiTuLiu": {
       "name": "MaaRecord.ReportToYiTuLiu.name",
       "help": "MaaRecord.ReportToYiTuLiu.help"
+    }
+  },
+  "MaaUpdate": {
+    "_info": {
+      "name": "MAA 更新設定",
+      "help": ""
+    },
+    "AutoUpdateResource": {
+      "name": "自動更新任務資源",
+      "help": "每次執行 MAA 任務前，檢查並下載活動關卡等增量資源（tasks.json）\n用於支援新關卡、新活動。容量很小（約 15 KB），下載失敗不會影響任務執行"
+    },
+    "UpdatePackage": {
+      "name": "自動更新 MAA 本體",
+      "help": "檢查 MaaCore 新版本並下載完整安裝包（約 300 MB）\nMaaCore 使用中時無法覆蓋，更新會在下次啟動 Alas 時自動安裝"
+    },
+    "VersionType": {
+      "name": "更新通道",
+      "help": "Stable 為正式版，Beta 為測試版，Nightly 為每夜版\n不同通道的 MaaCore 與資源需要互相匹配，一般保持預設即可",
+      "Stable": "穩定版",
+      "Beta": "測試版",
+      "Nightly": "每夜版"
     }
   },
   "MaaFight": {
@@ -516,18 +551,54 @@
       "Phantom": "Phantom",
       "Mizuki": "Mizuki",
       "Sami": "Sami",
-      "Sarkaz": "Sarkaz"
+      "Sarkaz": "Sarkaz",
+      "JieGarden": "歲的界園志異",
+      "BlackFlow": "黑流樹海"
     },
     "Mode": {
       "name": "MaaRoguelike.Mode.name",
       "help": "MaaRoguelike.Mode.help",
       "0": "0",
       "1": "1",
-      "4": "4"
+      "4": "4",
+      "5": "刷坍縮範式(薩米)",
+      "6": "月度小隊",
+      "7": "深入調查",
+      "10001": "快速通過第一層(薩卡茲)",
+      "20001": "刷常樂節點(界園)",
+      "30001": "刷襁褓動物(黑流)",
+      "30003": "刷動物與開局獎勵(黑流)"
+    },
+    "Difficulty": {
+      "name": "難度等級",
+      "help": "不高於主題上限：傀影15、水月18、薩米15、薩卡茲18、界園18、黑流16\n未解鎖時自動選擇已解鎖的最高難度",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "10",
+      "11": "11",
+      "12": "12",
+      "13": "13",
+      "14": "14",
+      "15": "15",
+      "16": "16",
+      "17": "17",
+      "18": "18"
     },
     "StartsCount": {
       "name": "MaaRoguelike.StartsCount.name",
       "help": "MaaRoguelike.StartsCount.help"
+    },
+    "InvestmentEnabled": {
+      "name": "投資源石錠",
+      "help": "關閉後不會投資源石錠"
     },
     "InvestmentsCount": {
       "name": "MaaRoguelike.InvestmentsCount.name",
@@ -537,29 +608,64 @@
       "name": "MaaRoguelike.StopWhenInvestmentFull.name",
       "help": "MaaRoguelike.StopWhenInvestmentFull.help"
     },
+    "InvestmentWithMoreScore": {
+      "name": "投資後購物",
+      "help": "僅刷源石錠模式（1）有效"
+    },
+    "StopAtFinalBoss": {
+      "name": "第五層險路惡敵前停止",
+      "help": "傀影主題無效"
+    },
+    "StopAtMaxLevel": {
+      "name": "肉鴿等級刷滿後停止",
+      "help": ""
+    },
     "Squad": {
       "name": "MaaRoguelike.Squad.name",
       "help": "MaaRoguelike.Squad.help",
-      "魂灵护送分队": "魂灵护送分队",
-      "博闻广记分队": "博闻广记分队",
-      "蓝图测绘分队": "蓝图测绘分队",
-      "因地制宜分队": "因地制宜分队",
-      "永恒狩猎分队": "永恒狩猎分队",
-      "生活至上分队": "生活至上分队",
-      "科学主义分队": "科学主义分队",
-      "特训分队": "特训分队",
-      "心胜于物分队": "心胜于物分队",
-      "物尽其用分队": "物尽其用分队",
-      "以人为本分队": "以人为本分队",
       "指挥分队": "指挥分队",
-      "集群分队": "集群分队",
       "后勤分队": "后勤分队",
-      "矛头分队": "矛头分队",
       "突击战术分队": "突击战术分队",
       "堡垒战术分队": "堡垒战术分队",
       "远程战术分队": "远程战术分队",
       "破坏战术分队": "破坏战术分队",
+      "集群分队": "集群分队",
+      "矛头分队": "矛头分队",
       "研究分队": "研究分队",
+      "心胜于物分队": "心胜于物分队",
+      "物尽其用分队": "物尽其用分队",
+      "以人为本分队": "以人为本分队",
+      "永恒狩猎分队": "永恒狩猎分队",
+      "生活至上分队": "生活至上分队",
+      "科学主义分队": "科学主义分队",
+      "特训分队": "特训分队",
+      "魂灵护送分队": "魂灵护送分队",
+      "博闻广记分队": "博闻广记分队",
+      "蓝图测绘分队": "蓝图测绘分队",
+      "因地制宜分队": "因地制宜分队",
+      "异想天开分队": "异想天开分队",
+      "点刺成锭分队": "点刺成锭分队",
+      "拟态学者分队": "拟态学者分队",
+      "专业人士分队": "专业人士分队",
+      "特勤分队": "特勤分队",
+      "高台突破分队": "高台突破分队",
+      "地面突破分队": "地面突破分队",
+      "游客分队": "游客分队",
+      "司岁台分队": "司岁台分队",
+      "天师府分队": "天师府分队",
+      "花团锦簇分队": "花团锦簇分队",
+      "棋行险着分队": "棋行险着分队",
+      "岁影回音分队": "岁影回音分队",
+      "代理人分队": "代理人分队",
+      "知学分队": "知学分队",
+      "商贾分队": "商贾分队",
+      "本源研修分队": "本源研修分队",
+      "文明开化分队": "文明开化分队",
+      "开拓者分队": "开拓者分队",
+      "多边贸易分队": "多边贸易分队",
+      "地质调查分队": "地质调查分队",
+      "团结阵线分队": "团结阵线分队",
+      "踏足遍历分队": "踏足遍历分队",
       "高规格分队": "高规格分队"
     },
     "Roles": {
@@ -568,6 +674,8 @@
       "先手必胜": "先手必胜",
       "稳扎稳打": "稳扎稳打",
       "取长补短": "取长补短",
+      "灵活部署": "灵活部署",
+      "坚不可摧": "坚不可摧",
       "随心所欲": "随心所欲"
     },
     "CoreChar": {
@@ -591,28 +699,165 @@
     "refreshTraderWithDice": {
       "name": "MaaRoguelike.refreshTraderWithDice.name",
       "help": "MaaRoguelike.refreshTraderWithDice.help"
+    },
+    "CollectibleModeShopping": {
+      "name": "刷開局時購物",
+      "help": "僅刷開局模式（4）有效"
+    },
+    "CollectibleModeSquad": {
+      "name": "刷開局分隊",
+      "help": "留空則與「開局分隊」相同"
+    },
+    "CollectibleModeRewards": {
+      "name": "刷開局期望獎勵",
+      "help": "用 > 分隔，可填：熱水壺、護盾、源石錠、希望、隨機、鑰匙、骰子、構想、票券"
+    },
+    "SamiFirstFloorFoldartal": {
+      "name": "第一層遠見密文板",
+      "help": "僅薩米主題，凹到後停止任務"
+    },
+    "SamiStartFoldartals": {
+      "name": "開局期望密文板",
+      "help": "僅薩米主題刷開局（4）有效，需配合生活至上分隊"
+    },
+    "ExpectedCollapsalParadigms": {
+      "name": "期望坍縮範式",
+      "help": "僅薩米主題刷坍縮範式（5）有效，用 > 分隔"
+    },
+    "MonthlySquadAutoIterate": {
+      "name": "月度小隊自動切換",
+      "help": ""
+    },
+    "MonthlySquadCheckComms": {
+      "name": "把小隊通訊作為切換依據",
+      "help": ""
+    },
+    "DeepExplorationAutoIterate": {
+      "name": "深入調查自動切換",
+      "help": ""
+    },
+    "FindPlaytimeTarget": {
+      "name": "常樂節點目標",
+      "help": "僅界園刷常樂節點（20001）有效",
+      "1": "令",
+      "2": "黍",
+      "3": "年"
+    },
+    "StartWithSeed": {
+      "name": "種子",
+      "help": "留空則不使用。僅薩卡茲「點刺成錠分隊」「後勤分隊」刷錢時使用"
+    },
+    "BlackFlowStrategy": {
+      "name": "黑流樹海結局",
+      "help": "僅黑流樹海刷經驗（0）時有效",
+      "ending1": "結局一",
+      "ending2": "結局二",
+      "ending3": "結局三"
+    },
+    "BlackFlowStartAnimals": {
+      "name": "襁褓動物",
+      "help": "僅黑流樹海刷開局（30003）有效，最多兩隻\n可填：貓、狗、三頭犬、羽蛇"
+    },
+    "BlackFlowStartRewards": {
+      "name": "開局的期望獎勵",
+      "help": "僅黑流樹海刷開局（30003）有效，用 > 分隔\n普通：未編號物、調查預付款、空間租賃、退行補償、林間代步、巢寄生\n羽蛇專屬：天馬、駿鷹、巨龍、九頭蛇、白澤、金烏"
+    }
+  },
+  "MaaReclamation": {
+    "_info": {
+      "name": "生息演算設定",
+      "help": ""
+    },
+    "Theme": {
+      "name": "主題",
+      "help": "沙洲遺聞：刷繁榮點數\n重啟錨點：刷重啟錨點關卡（RA-1 / RA-4 / RA-15）",
+      "Tales": "沙洲遺聞",
+      "RelaunchAnchor": "重啟錨點"
+    },
+    "Mode": {
+      "name": "模式",
+      "help": "沙洲遺聞：0 無存檔刷繁榮點數，1 有存檔刷繁榮點數（自動製造+讀檔）\n重啟錨點：16 刷 RA-1，32 刷 RA-15，48 刷 RA-4",
+      "0": "無存檔刷繁榮點數",
+      "1": "有存檔刷繁榮點數",
+      "16": "重啟錨點 RA-1",
+      "32": "重啟錨點 RA-15",
+      "48": "重啟錨點 RA-4"
+    },
+    "ClearStore": {
+      "name": "進入商店清空",
+      "help": "僅沙洲遺聞「無存檔刷繁榮點數」有效"
+    },
+    "ToolsToCraft": {
+      "name": "自動製造物品",
+      "help": "用 > 分隔，填物品名的一部分即可匹配"
+    },
+    "IncrementMode": {
+      "name": "點擊方式",
+      "help": "",
+      "0": "連點",
+      "1": "長按"
+    },
+    "NumCraftBatches": {
+      "name": "單次最大製造輪數",
+      "help": "每批 99 個"
     }
   },
   "MaaAward": {
     "_info": {
-      "name": "MaaAward._info.name",
-      "help": "MaaAward._info.help"
+      "name": "領取獎勵",
+      "help": ""
+    },
+    "DailyAward": {
+      "name": "領取每日/每週任務獎勵",
+      "help": ""
     },
     "Mail": {
-      "name": "MaaAward.Mail.name",
-      "help": "MaaAward.Mail.help"
+      "name": "領取所有郵件獎勵",
+      "help": ""
     },
     "Recruit": {
-      "name": "MaaAward.Recruit.name",
-      "help": "MaaAward.Recruit.help"
+      "name": "進行限定池贈送的每日免費單抽",
+      "help": "此功能屬於危險功能，可能會造成誤抽\n若不存在免費單抽，則不會抽取"
     },
     "Orundum": {
-      "name": "MaaAward.Orundum.name",
-      "help": "MaaAward.Orundum.help"
+      "name": "領取幸運牆的每日合成玉獎勵",
+      "help": ""
+    },
+    "Mining": {
+      "name": "領取限時開採許可的每日合成玉獎勵",
+      "help": ""
     },
     "Specialaccess": {
-      "name": "MaaAward.Specialaccess.name",
-      "help": "MaaAward.Specialaccess.help"
+      "name": "領取週年贈送月卡獎勵",
+      "help": ""
+    },
+    "SignInEvent": {
+      "name": "領取限時簽到活動獎勵",
+      "help": ""
+    }
+  },
+  "MaaDataUpdate": {
+    "_info": {
+      "name": "更新資料",
+      "help": ""
+    },
+    "UpdateOperBox": {
+      "name": "識別幹員 box",
+      "help": "逐頁識別已擁有的幹員（精英階段 / 等級 / 潛能）\n結果保存到 config/maa/operbox.json"
+    },
+    "UpdateDepot": {
+      "name": "識別倉庫",
+      "help": "識別倉庫中的材料數量\n結果保存到 config/maa/depot.json"
+    }
+  },
+  "MaaOperProgress": {
+    "_info": {
+      "name": "幹員培養",
+      "help": ""
+    },
+    "Plans": {
+      "name": "培養計畫",
+      "help": "JSON 陣列，每項一個養成動作，與 MAA「從剪貼簿匯入計畫」格式相同\n範例：\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname：幹員名（必填）\nelite：精英化目標，1 或 2\nskill_level：技能等級目標，2~7\nskill_mastery：三個技能的專精等級，0~3，如 [3, 0, 0]\n同一幹員可以寫多條，依序執行；同名不同職業的幹員需額外加 \"role\"，如 \"role\": \"Caster\"\n留空或 [] 表示本次不執行"
     }
   },
   "MaaCopilot": {

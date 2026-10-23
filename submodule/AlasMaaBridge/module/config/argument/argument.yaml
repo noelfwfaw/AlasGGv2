@@ -33,7 +33,7 @@ Error:
 Optimization:
   WhenTaskQueueEmpty:
     value: stay_there
-    display: hide
+    option: [ stay_there, close_game ]
 
 MaaEmulator:
   Serial:
@@ -54,6 +54,15 @@ MaaRecord:
   ReportToPenguin: false
   PenguinID: null
   ReportToYiTuLiu: false
+
+MaaUpdate:
+  AutoUpdateResource:
+    value: true
+  UpdatePackage:
+    value: false
+  VersionType:
+    value: Stable
+    option: [ Stable, Beta, Nightly ]
 
 MaaFight:
   Stage:
@@ -152,19 +161,26 @@ MaaMall:
 MaaRoguelike:
   Theme:
     value: Sarkaz
-    option: [ Phantom, Mizuki, Sami, Sarkaz ]
+    option: [ Phantom, Mizuki, Sami, Sarkaz, JieGarden, BlackFlow ]
   Mode:
     value: 0
-    option: [ 0, 1, 4 ]
+    option: [ 0, 1, 4, 5, 6, 7, 10001, 20001, 30001, 30003 ]
+  Difficulty:
+    value: 0
+    option: [ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18 ]
   StartsCount: 9999999
+  InvestmentEnabled: true
   InvestmentsCount: 9999999
   StopWhenInvestmentFull: false
+  InvestmentWithMoreScore: false
+  StopAtFinalBoss: false
+  StopAtMaxLevel: false
   Squad:
     value: 指挥分队
-    option: [ 魂灵护送分队, 博闻广记分队, 蓝图测绘分队, 因地制宜分队, 永恒狩猎分队, 生活至上分队, 科学主义分队, 特训分队, 心胜于物分队, 物尽其用分队, 以人为本分队, 指挥分队, 集群分队, 后勤分队, 矛头分队, 突击战术分队, 堡垒战术分队, 远程战术分队, 破坏战术分队, 研究分队, 高规格分队 ]
+    option: [ 指挥分队, 后勤分队, 突击战术分队, 堡垒战术分队, 远程战术分队, 破坏战术分队, 集群分队, 矛头分队, 研究分队, 心胜于物分队, 物尽其用分队, 以人为本分队, 永恒狩猎分队, 生活至上分队, 科学主义分队, 特训分队, 魂灵护送分队, 博闻广记分队, 蓝图测绘分队, 因地制宜分队, 异想天开分队, 点刺成锭分队, 拟态学者分队, 专业人士分队, 特勤分队, 高台突破分队, 地面突破分队, 游客分队, 司岁台分队, 天师府分队, 花团锦簇分队, 棋行险着分队, 岁影回音分队, 代理人分队, 知学分队, 商贾分队, 本源研修分队, 文明开化分队, 开拓者分队, 多边贸易分队, 地质调查分队, 团结阵线分队, 踏足遍历分队, 高规格分队 ]
   Roles:
     value: 取长补短
-    option: [ 先手必胜, 稳扎稳打, 取长补短, 随心所欲 ]
+    option: [ 先手必胜, 稳扎稳打, 取长补短, 灵活部署, 坚不可摧, 随心所欲 ]
   CoreChar: null
   Support:
     value: no_use
@@ -173,12 +189,68 @@ MaaRoguelike:
     value: no_use
     option: [ no_use, start_with_elite_two, only_start_with_elite_two ]
   refreshTraderWithDice: false
+  CollectibleModeShopping: false
+  CollectibleModeSquad: null
+  CollectibleModeRewards:
+    value: 热水壶 > 希望
+    type: textarea
+  SamiFirstFloorFoldartal: null
+  SamiStartFoldartals:
+    value: null
+    type: textarea
+  ExpectedCollapsalParadigms:
+    value: 目空一些 > 睁眼瞎 > 图像损坏 > 一抹黑
+    type: textarea
+  MonthlySquadAutoIterate: true
+  MonthlySquadCheckComms: false
+  DeepExplorationAutoIterate: true
+  FindPlaytimeTarget:
+    value: 1
+    option: [ 1, 2, 3 ]
+  StartWithSeed: null
+  BlackFlowStrategy:
+    value: ending1
+    option: [ ending1, ending2, ending3 ]
+  BlackFlowStartAnimals:
+    value: null
+    type: textarea
+  BlackFlowStartRewards:
+    value: null
+    type: textarea
+
+MaaReclamation:
+  Theme:
+    value: Tales
+    option: [ Tales, RelaunchAnchor ]
+  Mode:
+    value: 0
+    option: [ 0, 1, 16, 32, 48 ]
+  ClearStore: false
+  ToolsToCraft:
+    value: 荧光棒
+    type: textarea
+  IncrementMode:
+    value: 0
+    option: [ 0, 1 ]
+  NumCraftBatches: 16
 
 MaaAward:
+  DailyAward: true
   Mail: False
   Recruit: False
   Orundum: False
+  Mining: false
   Specialaccess: False
+  SignInEvent: false
+
+MaaDataUpdate:
+  UpdateOperBox: true
+  UpdateDepot: true
+
+MaaOperProgress:
+  Plans:
+    value: '[]'
+    type: textarea
 
 # ==================== Tool ====================
 
