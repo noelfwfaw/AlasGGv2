@@ -571,7 +571,8 @@
       "help": "Optimization.WhenTaskQueueEmpty.help",
       "stay_there": "stay_there",
       "goto_main": "goto_main",
-      "close_game": "close_game"
+      "close_game": "close_game",
+      "close_emulator": "エミュレーターを終了"
     }
   },
   "DropRecord": {

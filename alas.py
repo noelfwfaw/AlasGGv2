@@ -546,6 +546,20 @@ class AzurLaneAutoScript:
                     if not self.wait_until(task.next_run):
                         del_cached_property(self, 'config')
                         continue
+                elif method == 'close_emulator':
+                    logger.info('Close emulator during wait')
+                    self.device.app_stop()
+                    release_resources()
+                    self.device.release_during_wait()
+                    if not self.device.emulator_stop_and_wait():
+                        logger.warning('Failed to stop emulator, fallback to close_game')
+                    if not self.wait_until(task.next_run):
+                        del_cached_property(self, 'config')
+                        continue
+                    if task.command != 'Restart':
+                        self.config.task_call('Restart')
+                        del_cached_property(self, 'config')
+                        continue
                 elif method == 'stay_there':
                     logger.info('Stay there during wait')
                     release_resources()
@@ -612,6 +626,12 @@ class AzurLaneAutoScript:
                 del_cached_property(self, 'config')
                 continue
 
+            # Check if the emulator is still alive before a task begins,
+            # restart it if it died during the wait period
+            if not self.device.emulator_check():
+                logger.critical('Request human takeover')
+                raise RequestHumanTakeover
+
             # Check GG config before a task begins (to reset temporary config), and decide to enable it.
             GGHandler(config=self.config, device=self.device).check_config()
             try:
@@ -631,7 +651,20 @@ class AzurLaneAutoScript:
             self.device.stuck_record_clear()
             self.device.click_record_clear()
             logger.hr(task, level=0)
-            success = self.run(inflection.underscore(task))
+            try:
+                success = self.run(inflection.underscore(task))
+            except RequestHumanTakeover:
+                # 运行期模拟器掉线（adb 与 nemu_ipc 两条路径最终都会抛这个异常）。
+                # 只有确认设备真的不在时才拉起模拟器并重试一次，其余情况维持原有的退出行为
+                if self.device.device_alive():
+                    raise
+                logger.critical('Emulator died during task, trying to recover')
+                if not self.device.emulator_check():
+                    raise
+                logger.warning('Emulator recovered, retry the task once')
+                self.device.stuck_record_clear()
+                self.device.click_record_clear()
+                success = self.run(inflection.underscore(task))
             logger.info(f'Scheduler: End task `{task}`')
             self.is_first_task = False
 
