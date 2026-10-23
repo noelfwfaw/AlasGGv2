@@ -857,7 +857,7 @@
     },
     "Plans": {
       "name": "Development plans",
-      "help": "JSON array, one action per item, same format as MAA \"import plan from clipboard\"\nExample:\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname: operator name (required)\nelite: elite target, 1 or 2\nskill_level: skill level target, 2~7\nskill_mastery: mastery of the 3 skills, 0~3, e.g. [3, 0, 0]\nAn operator can have several items, executed in order; add \"role\" (e.g. \"role\": \"Caster\") when names collide across roles\nEmpty or [] means nothing to do"
+      "help": "JSON array, one action per item, same format as MAA \"import plan from clipboard\"\nExample:\n[\n  {{\"name\": \"艾雅法拉\", \"elite\": 2}},\n  {{\"name\": \"艾雅法拉\", \"skill_level\": 7}},\n  {{\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}}\n]\n\nname: operator name (required)\nelite: elite target, 1 or 2\nskill_level: skill level target, 2~7\nskill_mastery: mastery of the 3 skills, 0~3, e.g. [3, 0, 0]\nAn operator can have several items, executed in order; add \"role\" (e.g. \"role\": \"Caster\") when names collide across roles\nEmpty or [] means nothing to do"
     }
   },
   "MaaCopilot": {

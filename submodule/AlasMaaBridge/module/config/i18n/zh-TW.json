@@ -857,7 +857,7 @@
     },
     "Plans": {
       "name": "培養計畫",
-      "help": "JSON 陣列，每項一個養成動作，與 MAA「從剪貼簿匯入計畫」格式相同\n範例：\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname：幹員名（必填）\nelite：精英化目標，1 或 2\nskill_level：技能等級目標，2~7\nskill_mastery：三個技能的專精等級，0~3，如 [3, 0, 0]\n同一幹員可以寫多條，依序執行；同名不同職業的幹員需額外加 \"role\"，如 \"role\": \"Caster\"\n留空或 [] 表示本次不執行"
+      "help": "JSON 陣列，每項一個養成動作，與 MAA「從剪貼簿匯入計畫」格式相同\n範例：\n[\n  {{\"name\": \"艾雅法拉\", \"elite\": 2}},\n  {{\"name\": \"艾雅法拉\", \"skill_level\": 7}},\n  {{\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}}\n]\n\nname：幹員名（必填）\nelite：精英化目標，1 或 2\nskill_level：技能等級目標，2~7\nskill_mastery：三個技能的專精等級，0~3，如 [3, 0, 0]\n同一幹員可以寫多條，依序執行；同名不同職業的幹員需額外加 \"role\"，如 \"role\": \"Caster\"\n留空或 [] 表示本次不執行"
     }
   },
   "MaaCopilot": {
