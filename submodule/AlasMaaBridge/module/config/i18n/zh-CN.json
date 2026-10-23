@@ -857,7 +857,7 @@
     },
     "Plans": {
       "name": "培养计划",
-      "help": "JSON 数组，每项一个养成动作，与 MAA「从剪贴板导入计划」格式相同\n示例：\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname：干员名（必填）\nelite：精英化目标，1 或 2\nskill_level：技能等级目标，2~7\nskill_mastery：三个技能的专精等级，0~3，如 [3, 0, 0]\n同一干员可以写多条，按顺序执行；同名不同职业的干员需要额外加 \"role\"，如 \"role\": \"Caster\"\n留空或 [] 表示本次不执行"
+      "help": "JSON 数组，每项一个养成动作，与 MAA「从剪贴板导入计划」格式相同\n示例：\n[\n  {{\"name\": \"艾雅法拉\", \"elite\": 2}},\n  {{\"name\": \"艾雅法拉\", \"skill_level\": 7}},\n  {{\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}}\n]\n\nname：干员名（必填）\nelite：精英化目标，1 或 2\nskill_level：技能等级目标，2~7\nskill_mastery：三个技能的专精等级，0~3，如 [3, 0, 0]\n同一干员可以写多条，按顺序执行；同名不同职业的干员需要额外加 \"role\"，如 \"role\": \"Caster\"\n留空或 [] 表示本次不执行"
     }
   },
   "MaaCopilot": {
