@@ -157,6 +157,10 @@
       "YoStarKR": "YoStarKR",
       "txwy": "txwy"
     },
+    "CustomPackageName": {
+      "name": "Custom package name (optional)",
+      "help": "Leave empty to use the official package name of the selected server.\nOnly fill this in when the game is a modified / repackaged client whose package name differs from the official one, e.g. com.hypergryph.arknightt\nPackage name only, do not include the activity (no \"/\").\nRestart this ALAS instance for the change to take effect."
+    },
     "MaaPath": {
       "name": "MAA Installation Path",
       "help": "should end on 'MAA'"

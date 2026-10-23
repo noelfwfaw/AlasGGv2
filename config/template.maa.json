@@ -3,6 +3,7 @@
     "MaaEmulator": {
       "Serial": "127.0.0.1:5555",
       "PackageName": "Official",
+      "CustomPackageName": "",
       "MaaPath": "D:/Program Files/MAA",
       "TouchMethod": "minitouch",
       "DeploymentWithPause": false

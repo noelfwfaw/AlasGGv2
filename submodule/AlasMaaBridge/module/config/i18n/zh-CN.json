@@ -157,6 +157,10 @@
       "YoStarKR": "韩服",
       "txwy": "繁中服"
     },
+    "CustomPackageName": {
+      "name": "自定义包名（可选）",
+      "help": "留空则使用「游戏服务器」对应的官方包名。\n仅在游戏为魔改 / 重打包客户端（包名与官方不同）时填写，例如：com.hypergryph.arknightt\n只填包名，不要填 Activity（不要出现 \"/\"）。\n修改后需要重启该 ALAS 实例才会生效。"
+    },
     "MaaPath": {
       "name": "MAA安装路径",
       "help": "Alas的MAA插件支持多开，多个MAA配置可以共用安装路径"

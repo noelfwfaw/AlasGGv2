@@ -42,6 +42,9 @@ MaaEmulator:
   PackageName:
     value: Official
     option: [ Official, Bilibili, YoStarEN, YoStarJP, YoStarKR, txwy ]
+  CustomPackageName:
+    value: ""
+    valuetype: str
   MaaPath:
     value: D:/Program Files/MAA
     type: textarea
