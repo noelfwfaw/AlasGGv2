@@ -151,6 +151,7 @@ class MaaDevice(FakeDevice):
         if not IS_WINDOWS:
             return True
         if not self.device_alive():
+            logger.info('模拟器不在线，跳过游戏进程检查')
             return False
 
         config = self._config
@@ -158,6 +159,7 @@ class MaaDevice(FakeDevice):
             return True
         package = self.game_package()
         if package is None:
+            logger.info('包名未知，已跳过游戏进程检查')
             return True
 
         emulator = MaaEmulator()
@@ -175,6 +177,8 @@ class MaaDevice(FakeDevice):
             except Exception as e:
                 logger.info(e)
 
+        # 把判据本身写进日志，便于区分「游戏真没开」与「包名/镜像不对」
+        logger.info(f'游戏进程未找到：{package}（client_type={config.MaaEmulator_PackageName}）')
         return False
 
     def emulator_check(self):
@@ -615,6 +619,79 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             logger.warning('关闭模拟器失败，将按关闭游戏处理')
         return stopped
 
+    def _maa_watch_wait_loop(self, task):
+        """
+        护栏：连续进入等待分支、期间没有任何实质任务执行，判定为「关→启」自激循环。
+
+        判据只能是「连续进入等待」，不能用「距上次关闭不足 N 秒」——用户关掉游戏后
+        一分钟内手动加任务是正常操作，会被误杀。
+
+        Args:
+            task (Task): 本轮即将等待的任务
+        """
+        now = datetime.now()
+        entries = self.__dict__.setdefault('_maa_wait_enters', [])
+        entries.append((now, self.config.Optimization_WhenTaskQueueEmpty, task.command))
+        # 只保留最近 10 分钟内的记录
+        entries[:] = [entry for entry in entries if (now - entry[0]).total_seconds() < 600]
+
+        if len(entries) < 3:
+            return
+
+        logger.critical('检测到调度在原地打转：10 分钟内连续 3 次进入等待分支，期间没有任何任务执行')
+        for time, method, command in entries:
+            logger.critical(f'等待记录 {time.strftime("%H:%M:%S")} 关闭方式={method} 待执行任务={command}')
+        logger.critical('常见原因：等待分支里调用了 task_call()，把开始唤醒拉到现在执行')
+        raise RequestHumanTakeover
+
+    def maa_task_call_startup(self):
+        """
+        插入一次开始唤醒。
+
+        task_call() 会强制把 Enable 置为 True，即使用户在 GUI 里禁用了开始唤醒也会被复活。
+        用户显式禁用时不要偷偷改回去，直接停下让人处理。
+        """
+        if not self.config.cross_get(keys=['MaaStartup', 'Scheduler', 'Enable'], default=True):
+            logger.critical('开始唤醒已被禁用（MAA 设置 - 开始唤醒），无法自动拉起游戏')
+            logger.critical('请在 MAA 设置中启用「开始唤醒」，或手动启动游戏')
+            raise RequestHumanTakeover
+
+        self.config.task_call('MaaStartup')
+
+    def maa_diagnose_game(self):
+        """
+        唤醒后游戏仍未运行时的补充诊断：把设备上疑似明日方舟的包列出来。
+
+        失败只告警，绝不影响主流程。
+        """
+        config = self.config
+        serial = config.MaaEmulator_Serial
+        package = self.device.game_package()
+        logger.critical(f'当前「游戏服务器」为 {config.MaaEmulator_PackageName}，判据包名 {package}')
+        if not package:
+            logger.critical('包名未知，已跳过游戏进程检查，请检查「游戏服务器」设置')
+            return
+
+        try:
+            output = MaaEmulator().shell(serial, 'pm list packages', timeout=10)
+        except Exception as e:
+            logger.warning(f'无法查询设备 {serial} 的已安装包：{e}')
+            return
+
+        packages = []
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith('package:'):
+                packages.append(line[len('package:'):].strip())
+        related = [
+            item for item in packages
+            if any(key in item.lower() for key in ('arknights', 'hypergryph', 'yostar', 'txwy'))
+        ][:5]
+        if related:
+            logger.critical(f'设备 {serial} 上疑似相关包：{"、".join(related)}')
+        else:
+            logger.critical(f'设备 {serial} 上未找到任何疑似明日方舟的包')
+
     def get_next_task(self):
         """
         重写任务调度，支持「完成所有任务后」的收尾行为。
@@ -626,6 +703,11 @@ class ArknightsAutoScript(AzurLaneAutoScript):
 
         任务到点后先确认模拟器在线（设备层），再确认游戏在运行（游戏层），
         游戏没起就先补一次开始唤醒。
+
+        注意：等待分支里**不得**主动唤醒游戏。`task_call()` 的语义是「立刻执行」而不是
+        「预排」，它会把 MaaStartup 的 NextRun 设为当前时间，而 MaaStartup 必然启动游戏，
+        于是「等待 → 关游戏 → 立刻开游戏 → 队列又空 → 等待」会自激成环。
+        唤醒只发生在任务到点后的边界判据里。
         """
         while 1:
             task = self.config.get_next()
@@ -639,6 +721,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             self.config.start_watching()
 
             if task.next_run > datetime.now():
+                self._maa_watch_wait_loop(task)
                 logger.info(f'Wait until {task.next_run} for task `{task.command}`')
                 self.is_first_task = False
                 method = self.config.Optimization_WhenTaskQueueEmpty
@@ -650,22 +733,14 @@ class ArknightsAutoScript(AzurLaneAutoScript):
                         f'Wait only {int(wait_seconds)}s, skip closing emulator '
                         f'(threshold {EMULATOR_CLOSE_MIN_WAIT}s)'
                     )
-                    needs_startup = False
                 elif method == 'close_emulator':
                     self.maa_stop_during_wait(task.next_run)
-                    needs_startup = True
                 else:
                     self.maa_close_game_during_wait()
-                    # 不依赖 CloseDown 的返回值：关失败了，任务边界的游戏判据也会发现游戏还在
-                    needs_startup = method == 'close_game'
-                if needs_startup:
-                    # 先排一次开始唤醒，等待期间配置被改动也不会带着关掉的游戏去跑任务
-                    self.config.task_call('MaaStartup')
                 self.device.release_during_wait()
+                # 这里不许再写配置：等待分支内的写盘会改掉配置基准，
+                # 让 wait_until() 把「自己写的」当成「用户改的」而立即返回 False
                 if not self.wait_until(task.next_run):
-                    del_cached_property(self, 'config')
-                    continue
-                if needs_startup:
                     del_cached_property(self, 'config')
                     continue
 
@@ -680,17 +755,22 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             if task.command != 'MaaStartup':
                 if not device.game_alive():
                     if self._maa_wake_attempted:
+                        self.maa_diagnose_game()
                         logger.critical(
                             '开始唤醒后游戏仍未运行，请检查账号登录、游戏更新或 MAA 日志'
                         )
                         raise RequestHumanTakeover
                     logger.critical('游戏未运行，先执行开始唤醒')
                     self._maa_wake_attempted = True
-                    self.config.task_call('MaaStartup')
+                    self.maa_task_call_startup()
                     del_cached_property(self, 'config')
                     continue
                 # 游戏在运行，说明上一次唤醒已经生效，下次掉线时重新允许插一次唤醒
                 self._maa_wake_attempted = False
+
+            # 有实质任务即将执行，说明调度没有在原地打转，清零等待计数器
+            if task.command != 'MaaStartup':
+                self.__dict__['_maa_wait_enters'] = []
 
             break
 
