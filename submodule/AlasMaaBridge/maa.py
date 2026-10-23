@@ -26,7 +26,7 @@ if os.name == 'nt':
     except Exception as e:
         print(e)
 
-from alas import AzurLaneAutoScript
+from alas import AzurLaneAutoScript, EMULATOR_CLOSE_MIN_WAIT
 from module.base.decorator import del_cached_property
 from module.config.config import AzurLaneConfig
 from module.device.env import IS_WINDOWS
@@ -236,15 +236,19 @@ class MaaDevice(FakeDevice):
             logger.critical('启动模拟器失败')
             return False
 
-    def emulator_stop_and_wait(self, timeout=30):
+    def emulator_stop_and_wait(self, timeout=60, deadline=None):
         """
         关闭模拟器并等待它从 adb 设备列表消失。
 
         MuMu12 的 shutdown_player 是异步的，不等它关完就进入等待期的话，
         下个任务拉起模拟器时会与仍在销毁的实例撞车。
 
+        Args:
+            timeout (int): 最长等待时间
+            deadline (datetime): 调度截止时间，到达后立即返回，不占用调度时间
+
         Returns:
-            bool: 模拟器是否已关闭
+            bool: 模拟器是否已确认关闭
         """
         config = self._config
         if not IS_WINDOWS or config is None:
@@ -261,7 +265,7 @@ class MaaDevice(FakeDevice):
             logger.warning('模拟器关闭命令发送失败')
             return False
 
-        return emulator.wait_offline(serial, timeout=timeout)
+        return emulator.wait_offline(serial, timeout=timeout, deadline=deadline)
 
 
 class ArknightsAutoScript(AzurLaneAutoScript):
@@ -499,9 +503,12 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         handler = AssistantHandler(config=self.config, asst=asst)
         handler.connect()
 
-    def maa_stop_during_wait(self):
+    def maa_stop_during_wait(self, deadline=None):
         """
         等待期内先关游戏再关模拟器，对应「完成所有任务后：关闭模拟器」。
+
+        Args:
+            deadline (datetime): 调度截止时间，到达后不再占用调度时间
 
         Returns:
             bool: True 表示模拟器已被关闭
@@ -521,7 +528,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             logger.warning('模拟器当前已不在线，跳过关闭')
             return True
 
-        stopped = self.device.emulator_stop_and_wait()
+        stopped = self.device.emulator_stop_and_wait(deadline=deadline)
         if not stopped:
             # 关闭失败只降级为「关闭游戏」语义，不要中断等待流程
             logger.warning('关闭模拟器失败，将按关闭游戏处理')
@@ -544,12 +551,26 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             self.config.task = task
             self.config.bind(task)
 
+            # 配置变更的基准必须在任何阻塞操作之前采集：
+            # 关闭模拟器最长会阻塞 60 秒，阻塞期间 GUI 发起的 task_call 必须能被
+            # 随后的 wait_until() 发现，否则会迟到整个任务周期
+            self.config.start_watching()
+
             if task.next_run > datetime.now():
                 logger.info(f'Wait until {task.next_run} for task `{task.command}`')
                 self.is_first_task = False
                 method = self.config.Optimization_WhenTaskQueueEmpty
-                if method == 'close_emulator':
-                    self.maa_stop_during_wait()
+                # 只取一次 now，避免两次采样跨秒导致阈值抖动
+                wait_seconds = (task.next_run - datetime.now()).total_seconds()
+                if method == 'close_emulator' and wait_seconds < EMULATOR_CLOSE_MIN_WAIT:
+                    # 空档太短，按 stay_there 处理：不关游戏也不关模拟器
+                    logger.info(
+                        f'Wait only {int(wait_seconds)}s, skip closing emulator '
+                        f'(threshold {EMULATOR_CLOSE_MIN_WAIT}s)'
+                    )
+                    needs_startup = False
+                elif method == 'close_emulator':
+                    self.maa_stop_during_wait(task.next_run)
                     needs_startup = True
                 else:
                     self.maa_close_game_during_wait()

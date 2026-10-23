@@ -300,15 +300,19 @@ class Device(Screenshot, Control, AppControl):
         logger.critical('Emulator restarted, device is available now')
         return True
 
-    def emulator_stop_and_wait(self, timeout=30):
+    def emulator_stop_and_wait(self, timeout=60, deadline=None):
         """
         关闭模拟器，并等待该 serial 从 adb 设备列表消失。
 
         MuMu12 的 shutdown_player 是异步的（只发命令不等待关机完成），
         不等它关完就进入等待期的话，下一个任务拉起模拟器时会与仍在销毁的实例撞车。
 
+        Args:
+            timeout (int): 等待模拟器关闭的最长时间
+            deadline (datetime): 调度截止时间。到达后立即退出循环，不占用调度时间
+
         Returns:
-            bool: 模拟器是否已关闭。非 Windows 平台不支持停止模拟器，返回 False
+            bool: 模拟器是否已确认关闭。非 Windows 平台不支持停止模拟器，返回 False
         """
         if not self.emulator_stop():
             return False
@@ -316,14 +320,20 @@ class Device(Screenshot, Control, AppControl):
         timer = Timer(timeout).start()
         interval = Timer(1).start()
         while 1:
+            if deadline is not None and datetime.now() >= deadline:
+                logger.info('Deadline reached while waiting emulator stop, continue')
+                return False
+
             interval.wait()
             interval.reset()
-            if not self.list_device().select(serial=self.serial):
+            # offline 条目也不能算「还在运行」，判据与 device_alive() 保持一致
+            device = self.list_device().select(serial=self.serial).first_or_none()
+            if device is None or device.status != 'device':
                 logger.info('Emulator stopped')
                 return True
             if timer.reached():
-                logger.warning(f'Emulator still in adb device list after {timeout}s, continue anyway')
-                return True
+                logger.warning(f'Emulator still in adb device list after {timeout}s')
+                return False
 
     def get_orientation(self):
         """

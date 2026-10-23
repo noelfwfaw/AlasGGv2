@@ -15,6 +15,10 @@ from module.logger import logger
 from module.notify import handle_notify
 from module.gg_handler.gg_handler import GGHandler
 
+# 模拟器关闭后再拉起需要十几秒，空档太短时关闭模拟器得不偿失。
+# 只对 Optimization_WhenTaskQueueEmpty = close_emulator 生效，见 get_next_task()
+EMULATOR_CLOSE_MIN_WAIT = 180
+
 
 class AzurLaneAutoScript:
     stop_event: threading.Event = None
@@ -493,7 +497,7 @@ class AzurLaneAutoScript:
             bool: True if wait finished, False if config changed.
         """
         future = future + timedelta(seconds=1)
-        self.config.start_watching()
+        # 配置变更基准由调用方在阻塞操作之前采集，见 get_next_task()
         while 1:
             if datetime.now() > future:
                 return True
@@ -518,6 +522,11 @@ class AzurLaneAutoScript:
             self.config.task = task
             self.config.bind(task)
 
+            # 配置变更的基准必须在任何阻塞操作之前采集。
+            # 关闭模拟器最长会阻塞 60 秒，若等到阻塞结束后再采集，阻塞期间 GUI 发起的
+            # task_call 会因为 mtime 已经等于基准而被 wait_until() 永远漏掉。
+            self.config.start_watching()
+
             from module.base.resource import release_resources
             if self.config.task.command != 'Alas':
                 release_resources(next_task=task.command)
@@ -526,7 +535,20 @@ class AzurLaneAutoScript:
                 logger.info(f'Wait until {task.next_run} for task `{task.command}`')
                 self.is_first_task = False
                 method = self.config.Optimization_WhenTaskQueueEmpty
-                if method == 'close_game':
+                # 只取一次 now，避免两次采样跨秒导致阈值抖动
+                wait_seconds = (task.next_run - datetime.now()).total_seconds()
+                if method == 'close_emulator' and wait_seconds < EMULATOR_CLOSE_MIN_WAIT:
+                    # 空档太短，关掉再拉起比一直待机更费时间，按 stay_there 处理
+                    logger.info(
+                        f'Wait only {int(wait_seconds)}s, skip closing emulator '
+                        f'(threshold {EMULATOR_CLOSE_MIN_WAIT}s)'
+                    )
+                    release_resources()
+                    self.device.release_during_wait()
+                    if not self.wait_until(task.next_run):
+                        del_cached_property(self, 'config')
+                        continue
+                elif method == 'close_game':
                     logger.info('Close game during wait')
                     self.device.app_stop()
                     release_resources()
@@ -551,7 +573,7 @@ class AzurLaneAutoScript:
                     self.device.app_stop()
                     release_resources()
                     self.device.release_during_wait()
-                    if not self.device.emulator_stop_and_wait():
+                    if not self.device.emulator_stop_and_wait(deadline=task.next_run):
                         logger.warning('Failed to stop emulator, fallback to close_game')
                     if not self.wait_until(task.next_run):
                         del_cached_property(self, 'config')
