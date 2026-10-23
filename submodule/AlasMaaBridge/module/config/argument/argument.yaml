@@ -33,7 +33,7 @@ Error:
 Optimization:
   WhenTaskQueueEmpty:
     value: stay_there
-    option: [ stay_there, close_game ]
+    option: [ stay_there, close_game, close_emulator ]
 
 MaaEmulator:
   Serial:

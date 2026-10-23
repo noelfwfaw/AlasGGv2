@@ -132,9 +132,10 @@
     },
     "WhenTaskQueueEmpty": {
       "name": "When All Tasks Are Completed",
-      "help": "Action to take after all MAA tasks are done, while waiting for the next run\nStay at main page: do nothing, MAA usually leaves the game at the main page\nClose game: close the game client via MAA to reduce CPU usage while waiting, the game will be restarted automatically before the next task",
+      "help": "Action to take after all MAA tasks are done, while waiting for the next run\nStay at main page: do nothing, MAA usually leaves the game at the main page\nClose game: close the game client via MAA to reduce CPU usage while waiting, the game will be restarted automatically before the next task\nClose emulator: close the emulator after closing the game, CPU and memory usage is the lowest while waiting, the emulator will be restarted automatically before the next task",
       "stay_there": "Stay at main page",
-      "close_game": "Close game"
+      "close_game": "Close game",
+      "close_emulator": "Close emulator"
     }
   },
   "MaaEmulator": {
