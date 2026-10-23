@@ -28,6 +28,7 @@ if os.name == 'nt':
 
 from alas import AzurLaneAutoScript, EMULATOR_CLOSE_MIN_WAIT
 from module.base.decorator import del_cached_property
+from submodule.AlasMaaBridge.module.asst.package_override import apply_package_override
 from module.config.config import AzurLaneConfig
 from module.device.env import IS_WINDOWS
 from module.exception import RequestHumanTakeover
@@ -335,6 +336,14 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         # 更新必须在加载 MaaCore 之前完成，否则 dll 被占用无法覆盖
         self.maa_update()
 
+        # 包名映射必须在 AsstLoadResource() 之前注入：资源只在加载时读一次，
+        # 而且 maa_update() 可能覆盖 resource/config.json，所以顺序不能反
+        self.effective_package_name = apply_package_override(
+            self.config.MaaEmulator_MaaPath,
+            self.config.MaaEmulator_PackageName,
+            self.config.MaaEmulator_CustomPackageName,
+        )
+
         try:
             incremental_path = [os.path.join(self.config.MaaEmulator_MaaPath, './cache')]
             if self.config.MaaEmulator_PackageName in ["YoStarEN", "YoStarJP", "YoStarKR", "txwy"]:
@@ -362,6 +371,10 @@ class ArknightsAutoScript(AzurLaneAutoScript):
                 raise RequestHumanTakeover
             else:
                 raise
+
+        # 资源已加载、但还没连过 MaaCore。在这里确认包确实存在，
+        # 否则 MaaCore 会把 `am start` 失败当成连接层故障，白等 50 秒后报 Reconnect failed
+        self.maa_verify_package()
 
         @AssistantHandler.Asst.CallBackType
         def callback(msg, details, arg):
@@ -503,6 +516,74 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         handler = AssistantHandler(config=self.config, asst=asst)
         handler.connect()
 
+    def maa_verify_package(self):
+        """
+        启动前确认设备上确实装了要用的包。
+
+        MaaCore 把 `am start` 的失败当成连接层故障，会重连 5 轮、约 50 秒后才报
+        `Disconnect: Reconnect failed`，把「包名不存在」伪装成「重连失败」。
+        这里提前查一次，把 50 秒空转变成一条明确的错误。
+
+        查询本身失败（设备不在线、adb 异常）时只告警不拦截：
+        那不是「包名错误」，此时拦下来反而会误伤正常的等待流程。
+        """
+        target = self.__dict__.get('effective_package_name', None)
+        if not target:
+            return
+
+        config = self.config
+        serial = config.MaaEmulator_Serial
+        try:
+            output = MaaEmulator().shell(serial, 'pm list packages', timeout=10)
+        except Exception as e:
+            logger.warning(f'无法查询设备 {serial} 的已安装包，跳过包名校验：{e}')
+            return
+
+        packages = []
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith('package:'):
+                packages.append(line[len('package:'):].strip())
+        if not packages:
+            logger.warning(f'设备 {serial} 未返回任何已安装包，跳过包名校验')
+            return
+
+        if target in packages:
+            return
+
+        custom = str(config.MaaEmulator_CustomPackageName or '').strip()
+        related = [
+            package for package in packages
+            if any(key in package.lower() for key in ('arknights', 'hypergryph', 'yostar', 'txwy'))
+        ][:5]
+        logger.critical(f'设备 {serial} 上未安装包 {target}')
+        logger.critical(
+            f'当前「游戏服务器」为 {config.MaaEmulator_PackageName}，「自定义包名」={custom or "空"}'
+        )
+        if related:
+            logger.critical(f'设备上看起来相关的包：{"、".join(related)}')
+        else:
+            logger.critical('设备上未找到任何疑似明日方舟的包')
+        logger.critical(
+            '若这就是你的客户端，请把它填入「MAA 设置 - 自定义包名」；否则请检查「游戏服务器」是否选错'
+        )
+        raise RequestHumanTakeover
+
+    def maa_check_package_changed(self):
+        """
+        运行中改动「自定义包名」/「游戏服务器」后提示重启。
+
+        资源一个进程只加载一次（Asst 是类级缓存），改配置后不重启不会重新注入包名映射。
+        """
+        signature = (
+            self.config.MaaEmulator_PackageName,
+            str(self.config.MaaEmulator_CustomPackageName or '').strip(),
+        )
+        last = self.__dict__.get('_maa_package_signature', signature)
+        if signature != last:
+            logger.warning('自定义包名已变更，需重启该 ALAS 实例才会重新加载 MAA 资源')
+        self.__dict__['_maa_package_signature'] = signature
+
     def maa_stop_during_wait(self, deadline=None):
         """
         等待期内先关游戏再关模拟器，对应「完成所有任务后：关闭模拟器」。
@@ -550,6 +631,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             task = self.config.get_next()
             self.config.task = task
             self.config.bind(task)
+            self.maa_check_package_changed()
 
             # 配置变更的基准必须在任何阻塞操作之前采集：
             # 关闭模拟器最长会阻塞 60 秒，阻塞期间 GUI 发起的 task_call 必须能被

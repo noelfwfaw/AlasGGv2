@@ -157,6 +157,10 @@
       "YoStarKR": "YoStarKR",
       "txwy": "txwy"
     },
+    "CustomPackageName": {
+      "name": "カスタムパッケージ名（任意）",
+      "help": "空欄の場合は「ゲームサーバー」に対応する公式パッケージ名を使用します。\nゲームが改造 / 再パッケージ版クライアント（パッケージ名が公式と異なる）の場合のみ入力してください。例：com.hypergryph.arknightt\nパッケージ名のみを入力し、Activity は入力しないでください（\"/\" を含めない）。\n変更後はこの ALAS インスタンスの再起動が必要です。"
+    },
     "MaaPath": {
       "name": "MaaEmulator.MaaPath.name",
       "help": "MaaEmulator.MaaPath.help"

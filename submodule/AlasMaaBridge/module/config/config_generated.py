@@ -30,6 +30,7 @@ class GeneratedConfig:
     # Group `MaaEmulator`
     MaaEmulator_Serial = '127.0.0.1:5555'
     MaaEmulator_PackageName = 'Official'  # Official, Bilibili, YoStarEN, YoStarJP, YoStarKR, txwy
+    MaaEmulator_CustomPackageName = ''
     MaaEmulator_MaaPath = 'D:/Program Files/MAA'
     MaaEmulator_TouchMethod = 'minitouch'  # minitouch, maatouch, adb
     MaaEmulator_DeploymentWithPause = False

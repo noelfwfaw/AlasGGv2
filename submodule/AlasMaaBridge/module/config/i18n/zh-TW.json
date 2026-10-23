@@ -157,6 +157,10 @@
       "YoStarKR": "YoStarKR",
       "txwy": "txwy"
     },
+    "CustomPackageName": {
+      "name": "自訂套件名稱(可選)",
+      "help": "留空則使用「遊戲伺服器」對應的官方套件名稱。\n僅在遊戲為魔改 / 重打包客戶端（套件名稱與官方不同）時填寫，例如：com.hypergryph.arknightt\n只填套件名稱，不要填 Activity（不要出現 \"/\"）。\n修改後需要重啟此 ALAS 實例才會生效。"
+    },
     "MaaPath": {
       "name": "MaaEmulator.MaaPath.name",
       "help": "MaaEmulator.MaaPath.help"

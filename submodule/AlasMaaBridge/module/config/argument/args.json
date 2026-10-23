@@ -18,6 +18,11 @@
           "txwy"
         ]
       },
+      "CustomPackageName": {
+        "type": "input",
+        "value": "",
+        "valuetype": "str"
+      },
       "MaaPath": {
         "type": "textarea",
         "value": "D:/Program Files/MAA"
