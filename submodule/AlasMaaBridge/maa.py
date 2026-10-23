@@ -71,6 +71,8 @@ class MaaDevice(FakeDevice):
     def __init__(self, script=None):
         self.script = script
         self.config = None
+        # 仅供日志区分「已在线」与「本次拉起」，不参与任何调度判断
+        self.emulator_started = False
 
     @property
     def _config(self):
@@ -197,6 +199,7 @@ class MaaDevice(FakeDevice):
         if config is None:
             return True
 
+        self.emulator_started = False
         emulator = MaaEmulator()
         serial = config.MaaEmulator_Serial
         try:
@@ -206,10 +209,17 @@ class MaaDevice(FakeDevice):
             logger.critical(f'未检测到模拟器 {serial}，正在尝试启动')
             instance = emulator.find(serial)
             if instance is None:
-                logger.critical(
-                    f'未找到 serial 为 "{serial}" 的模拟器实例，'
-                    f'请检查 MAA 设置中的模拟器 serial'
-                )
+                logger.critical(f'未找到 serial 为 "{serial}" 的模拟器实例')
+                instances = emulator.list_instances()
+                if instances:
+                    logger.critical(
+                        '可用实例：' + '、'.join(
+                            f'{name} -> {candidate}' for name, candidate in instances
+                        )
+                    )
+                else:
+                    logger.critical('未找到任何已安装的模拟器实例，请确认模拟器已安装')
+                logger.critical('请检查 MAA 设置中的模拟器 serial')
                 return False
 
             if instance.serial != serial:
@@ -218,12 +228,15 @@ class MaaDevice(FakeDevice):
                 serial = instance.serial
 
             if not emulator.start(instance):
-                logger.critical('模拟器启动命令发送失败')
+                logger.critical(f'模拟器启动命令发送失败：{instance.name}（{instance.path}）')
                 return False
 
             serial = emulator.wait_online(instance)
             if not serial:
-                logger.critical('模拟器启动超时，adb 未上线')
+                logger.critical(
+                    f'模拟器启动超时，adb 未上线（serial={instance.serial}，'
+                    f'超时 {MaaEmulator.WAIT_ONLINE_TIMEOUT}s）'
+                )
                 return False
 
             if serial != config.MaaEmulator_Serial:
@@ -231,6 +244,7 @@ class MaaDevice(FakeDevice):
                 config.MaaEmulator_Serial = serial
 
             self.maa_reconnect()
+            self.emulator_started = True
             logger.info(f'模拟器已重启：{serial}')
             return True
         except RequestHumanTakeover:
@@ -497,6 +511,12 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             logger.info('所有任务已完成，游戏停留在主页面待机')
             return
 
+        # 设备不在线时不必连 MaaCore：那里会抛 RequestHumanTakeover，
+        # 而「设备不在」在收尾路径上只是期望的终态，不是错误
+        if not self.device.device_alive():
+            logger.info('模拟器离线，无需关闭游戏')
+            return
+
         logger.info('所有任务已完成，正在关闭游戏')
         try:
             handler = AssistantHandler(config=self.config, asst=self.maa_asst())
@@ -504,6 +524,9 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             handler.maa_start('CloseDown', {
                 'client_type': self.config.MaaEmulator_PackageName,
             })
+        except RequestHumanTakeover:
+            # MaaCore 未连接，说明设备不在；这不是需要人工介入的错误
+            logger.info('MaaCore 未连接，跳过关闭游戏（设备可能已离线）')
         except Exception as e:
             logger.exception(e)
             logger.warning('关闭游戏失败，下个任务开始前会重新唤醒游戏')
@@ -540,7 +563,8 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         try:
             output = MaaEmulator().shell(serial, 'pm list packages', timeout=10)
         except Exception as e:
-            logger.warning(f'无法查询设备 {serial} 的已安装包，跳过包名校验：{e}')
+            # 启动阶段设备可能还没起来，随后的启动检查会拉起它，这里不该喊 WARNING
+            logger.info(f'无法查询设备 {serial} 的已安装包，跳过包名校验：{e}')
             return
 
         packages = []
@@ -549,7 +573,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             if line.startswith('package:'):
                 packages.append(line[len('package:'):].strip())
         if not packages:
-            logger.warning(f'设备 {serial} 未返回任何已安装包，跳过包名校验')
+            logger.info(f'设备 {serial} 未返回任何已安装包，跳过包名校验')
             return
 
         if target in packages:
@@ -598,19 +622,28 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         Returns:
             bool: True 表示模拟器已被关闭
         """
+        # 设备不在线时不必连 MaaCore：那里会抛 RequestHumanTakeover，
+        # 而「设备不在」在收尾路径上只是期望的终态，不是错误
+        if not self.device.device_alive():
+            logger.info('模拟器离线，无需关闭')
+            return True
+
         try:
             handler = AssistantHandler(config=self.config, asst=self.maa_asst())
             handler.connect()
             handler.maa_start('CloseDown', {
                 'client_type': self.config.MaaEmulator_PackageName,
             })
+        except RequestHumanTakeover:
+            # MaaCore 未连接，说明设备不在；这不是需要人工介入的错误
+            logger.info('MaaCore 未连接，跳过关闭（设备可能已离线）')
         except Exception as e:
             logger.exception(e)
             logger.warning('关闭游戏失败，将继续关闭模拟器')
 
-        # 模拟器已经不在时不要再发关闭命令，否则会作用到不存在的实例上
+        # 二次兜底：关游戏期间模拟器可能已被自己或用户关掉
         if not self.device.device_alive():
-            logger.warning('模拟器当前已不在线，跳过关闭')
+            logger.info('模拟器已离线，无需再次关闭')
             return True
 
         stopped = self.device.emulator_stop_and_wait(deadline=deadline)
@@ -692,6 +725,40 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         else:
             logger.critical(f'设备 {serial} 上未找到任何疑似明日方舟的包')
 
+    def _maa_boot_check(self):
+        """
+        实例启动时的一次性设备就绪检查。
+
+        只在进程生命周期内执行一次，且必须排在 start_watching() 之前：
+        emulator_check() 最长会阻塞 180 秒（wait_online 超时），
+        若排在监听基准之后，会重现「阻塞期间 GUI 操作被吞」的问题。
+
+        注意：本检查只做「设备是否可达」，不做游戏判据。拉起后游戏没起来是正常的，
+        交给任务边界的 game_alive() 判据补一次开始唤醒。
+
+        close_emulator 的既定交互（不要优化掉）：启动 → 拉起模拟器 → 首个等待分支
+        发现要等很久 → 立刻关闭。这与主模块 Device.__init__ 的行为一致，不额外加抑制。
+        """
+        if self.__dict__.get('_maa_boot_checked', False):
+            return
+        # 先置位：即使后面抛 RHT，也不会在同一个实例里反复拉起模拟器
+        self.__dict__['_maa_boot_checked'] = True
+
+        device = self.device
+        device.config = self.config
+        if not device.emulator_check():
+            logger.critical(
+                f'实例启动：模拟器无法就绪（serial={self.config.MaaEmulator_Serial}）'
+            )
+            logger.critical('请检查 MAA 设置中的模拟器 serial，或手动启动模拟器后重新运行')
+            raise RequestHumanTakeover
+
+        serial = self.config.MaaEmulator_Serial
+        if device.emulator_started:
+            logger.info(f'实例启动：模拟器已拉起 {serial}')
+        else:
+            logger.info(f'实例启动：模拟器已在线 {serial}')
+
     def get_next_task(self):
         """
         重写任务调度，支持「完成所有任务后」的收尾行为。
@@ -709,6 +776,9 @@ class ArknightsAutoScript(AzurLaneAutoScript):
         于是「等待 → 关游戏 → 立刻开游戏 → 队列又空 → 等待」会自激成环。
         唤醒只发生在任务到点后的边界判据里。
         """
+        # 启动期设备就绪检查只做一次，且在任何阻塞/监听操作之前
+        self._maa_boot_check()
+
         while 1:
             task = self.config.get_next()
             self.config.task = task
@@ -734,6 +804,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
                         f'(threshold {EMULATOR_CLOSE_MIN_WAIT}s)'
                     )
                 elif method == 'close_emulator':
+                    logger.info(f'等待 {int(wait_seconds)}s，按「关闭模拟器」策略关闭')
                     self.maa_stop_during_wait(task.next_run)
                 else:
                     self.maa_close_game_during_wait()
