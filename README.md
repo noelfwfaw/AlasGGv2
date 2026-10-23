@@ -142,6 +142,61 @@ fork 新增功能的设置项均配有简体中文帮助文本（鼠标悬停显
 - **经验检测**：目标等级、上次检查时间、到达等级推迟任务（四语言）
 - 清理 `override.yaml` 中对 `GGHandler.Timeout` 的冗余覆盖（消除 config_updater 生成时的参数告警）
 
+### 10. MAA 插件（明日方舟 · AlasMaaBridge）适配
+
+路径：`submodule/AlasMaaBridge/`
+
+原版 MAA 插件停留在旧版 MaaCore 接口，本 fork 按 MAA v6.20.1 重新适配了任务参数、资源更新与配置生成。
+
+**任务参数适配（v6.20.1）**
+
+- **生息演算**：任务名改为 `Reclamation`（旧 `ReclamationAlgorithm` 会被 MaaCore 直接拒绝）；主题收敛为 `Tales`（无存档 / 有存档刷繁荣点数）与 `RelaunchAnchor`（RA-1 / RA-15 / RA-4），`Fire` 主题已从 MAA 移除；`clear_store` 只在 Tales 无存档模式生效
+- **肉鸽**：6 个主题（Phantom / Mizuki / Sami / Sarkaz / JieGarden / BlackFlow）；`start_with_seed` 按字符串传（MAA 文档写 boolean 是错的）；新增 `core_char_list`，旧 `core_char` 仍可用；黑流模式必须带开局动物与开局奖励，否则整个任务被拒
+- **领取奖励**：补齐 `Mining`（限时开采许可）与 `SignInEvent`（限时签到），`DailyAward` 可关闭（默认开启，保持原行为）
+- **兼容修复**：剿灭错误过滤 `!=` 改为 `not in`；补上 `Message.ReportRequest` 回调类型且未知类型不再抛异常；神秘代码前缀改用切片解析（`strip` 会吃掉结尾的 a/m）
+- **配置生成**：插件自带的 `config_updater` 只写 MAA 自己的产出（`args.json` / `config_generated.py` / `menu.json` / `template.maa.json`），不再覆盖主模块的同名配置
+
+**MAA 资源 / 本体更新**
+
+- `更新 MAA` 任务：`AutoUpdateResource`（默认开）启动时拉取 MaaCore 资源，版本可选 Stable / Beta / Nightly；`UpdatePackage` 可选同时更新本体
+- 资源更新走 `tasks.json` + ETag 增量，本体更新走 GitHub Release 包（流式下载 → 解压 → 清理已删除的旧资源），本体 dll 被占用时先落盘为 pending、下次启动再装
+- 更新完成后按当前客户端类型校验目标包名，避免资源与实际客户端不匹配
+- 本体更新解压时跳过用户数据目录（MAA 的设置、日志与缓存），不会覆盖已有配置
+
+**数据同步与干员培养**
+
+- `更新数据` 任务：`UpdateOperBox` / `UpdateDepot` 让 MAA 识别干员 box 与仓库，结果保存到 `config/maa/`（供查看或导入第三方面板）；两项都没勾选时跳过并把任务推迟到次日
+- `干员培养` 任务：在「培养计划」里直接填写 MAA 原生格式的 OperProgress plans JSON，提交后按 MAA 日志输出培养进度
+
+**完成所有任务后**
+
+- `完成所有任务后`：`主页面待机` / `关闭游戏` / `关闭模拟器` 三种收尾方式（模拟器相关的实现见下一节）
+
+**魔改客户端自定义包名**
+
+- `模拟器设置 > 自定义包名（可选）`（`CustomPackageName`）：留空时沿用 MAA `resource/config.json` 里的映射，填写后覆盖（如 `com.hypergryph.arknightt`）
+- 注入时机在资源更新之后、加载 MaaCore 之前（资源更新会重写 `config.json`，顺序反了会被冲掉）
+- 启动前校验设备上确实装有该包，缺失时列出设备上相关的包并请求人工介入，而不是让 MaaCore 空转 50 秒后报 `Reconnect failed`
+- 运行中修改包名会提示需重启实例才生效（MaaCore 资源一个进程只加载一次）
+
+### 11. 模拟器掉线自愈与「关闭模拟器」收尾
+
+路径：`alas.py`、`module/device/device.py`、`submodule/AlasMaaBridge/`
+
+- **`close_emulator` 收尾选项**：`Optimization.WhenTaskQueueEmpty` 新增该选项，完成所有任务后关游戏并关模拟器，下个任务开始前自动拉起；ALAS 与 MAA 插件都支持
+- **每条任务开始前自愈**：`Device.emulator_check()` 先做一次 `adb devices` 探测（约 30ms），掉线时重新枚举实例（MuMu 端口漂移会被修正）、拉起模拟器、释放 nemu_ipc 后重连 adb，不再让整个实例 `RequestHumanTakeover` 退出
+- **运行中掉线**：任务抛 `RequestHumanTakeover` 且确认设备真的不在时，拉起模拟器并重试该任务一次；其余情况维持原有退出行为
+- **停机判据**：`status != 'device'` 也算已关闭（MuMu 关闭后 adb 常留 `offline` 条目，旧逻辑会白等满一个超时）
+- **等待参数**：`emulator_stop_and_wait()` 超时 30 → 60 秒，支持 `deadline`（到点立即返回，不占用调度时间），超时返回 `False` 而不是「当作已关闭」
+- **空档下限**：距下个任务不足 180 秒（`EMULATOR_CLOSE_MIN_WAIT`）时不关模拟器，按待机处理——关掉再拉起要十几秒，短空档得不偿失
+- **GUI 操作不被吞**：配置变更基准 `start_watching()` 前移到任何阻塞操作之前，关闭模拟器期间在 GUI 手动加的任务能立刻执行
+- **MAA 插件的额外差异**：启动实例即做一次设备检查（失败才请求人工介入）；`wait_online()` 每 5 秒主动 `adb connect`（MuMu 不会把自己的端口注册进 adb server）并每 10 秒输出等待进度；关闭路径先判在线再连 MaaCore；等待分支不再反复唤醒游戏（避免「唤醒 → 队列又空 → 又关」的自激循环），并用 10 分钟内连续 3 次进入等待分支做空转保护
+
+### 12. GUI 修复
+
+- **科研（Scheduler）启用开关被隐藏**：`assets/gui/css/alas.css` 的开关选择器误伤了该控件，修正选择器后恢复显示
+- **设置页 KeyError 崩溃**：帮助文本里贴的 JSON 示例 `{"name": ...}` 未转义，`str.format()` 会把 `"name"` 当成替换字段；四语言 i18n 中的字面花括号统一改为 `{{` / `}}`（这也是 ALAS i18n 的隐式约定：文案里的花括号必须转义）
+
 ---
 
 ## Fork 维护备忘
