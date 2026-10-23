@@ -101,6 +101,23 @@ class MaaEmulator:
             return False
         return serial in self.device_serials()
 
+    def try_connect(self, serial):
+        """
+        尝试 adb connect 一个 serial，供 wait_online() 的等待循环共用。
+
+        失败是常态（模拟器还没起完），只打 DEBUG：等待期间每 5 秒一次，打成 INFO 会刷屏。
+        不要向上抛异常，`adb connect` 在端口未监听时会抛 AdbConnectionError。
+
+        Returns:
+            bool: 是否连上（不代表设备已可用，仍需 boot_completed 判断）
+        """
+        try:
+            self.adb_client().connect(serial)
+            return True
+        except Exception as e:
+            logger.debug(f'adb connect {serial} failed: {e}')
+            return False
+
     def find(self, serial):
         """
         按 serial 查找模拟器实例。
@@ -231,9 +248,20 @@ class MaaEmulator:
 
         timer = Timer(timeout).start()
         interval = Timer(1).start()
+        # 不 start()：未启动的 Timer 首次 reached() 即为 True，保证进循环先 connect 一次
+        connect_timer = Timer(5)
+        progress_timer = Timer(10).start()
         while 1:
+            # MuMu 启动后不会把 adb 端口注册到 adb server，只被动轮询 device_list()
+            # 永远看不到设备（实测：adb devices 为空，connect 一次后立刻出现且 boot 已完成）。
+            # 所以必须由这里主动 connect，否则必然空转到超时。节流 5 秒，避免每秒 fork 一个 adb 进程。
+            if connect_timer.reached():
+                connect_timer.reset()
+                self.try_connect(serial)
+
             serials = self.device_serials()
             online = serial if serial in serials else None
+            # serial 漂移兜底必须放在 connect 之后：只有 connect 过，设备才可能出现在列表里
             if online is None and instance_id is not None:
                 for candidate in serials:
                     if serial_to_id(candidate) == instance_id:
@@ -245,6 +273,13 @@ class MaaEmulator:
                     logger.info(f'Emulator serial changed: {serial} -> {online}')
                 logger.info(f'Emulator online: {online}')
                 return online
+
+            if progress_timer.reached():
+                progress_timer.reset()
+                logger.info(
+                    f'等待 adb 上线 {int(timer.current_time())}s/{timeout}s: {serial} '
+                    f'(当前设备: {", ".join(serials) if serials else "无"})'
+                )
 
             if timer.reached():
                 logger.warning(f'Emulator not online in {timeout}s: {instance.name}')
