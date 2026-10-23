@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from adbutils import AdbClient
 
@@ -234,16 +235,25 @@ class MaaEmulator:
             interval.wait()
             interval.reset()
 
-    def wait_offline(self, serial, timeout=30):
+    def wait_offline(self, serial, timeout=30, deadline=None):
         """
         等待 serial 从 adb 设备列表消失。
 
+        Args:
+            serial (str):
+            timeout (int): 最长等待时间
+            deadline (datetime): 调度截止时间，到达后立即返回，不占用调度时间
+
         Returns:
-            bool: 是否已消失（超时返回 False）
+            bool: 是否已消失（超时或到达截止时间返回 False）
         """
         timer = Timer(timeout).start()
         interval = Timer(1).start()
         while 1:
+            if deadline is not None and datetime.now() >= deadline:
+                logger.info(f'Deadline reached while waiting emulator stop: {serial}')
+                return False
+
             if serial not in self.device_serials():
                 logger.info(f'Emulator stopped: {serial}')
                 return True
