@@ -1,7 +1,13 @@
-# 修复任务：ALAS 运行中模拟器掉线后无法自动拉起（Windows + MuMu12 + nemu_ipc）
+# 修复任务：ALAS 运行中模拟器掉线后无法自动拉起 + 新增「关闭模拟器」选项
 
 > 提示词使用说明：本文件全文可直接作为任务提示词交给编码代理/工程师。
 > 文中行号基于当前 master，可能后续有偏移，**认函数名与日志原文比认行号可靠**。
+
+**本任务包含两件事，且强耦合，建议一起交付：**
+
+1. 修复「ALAS 实例运行中，模拟器掉线后无法自动拉起，直接 exit(1)」的崩溃（第 2-5、8 节）。
+2. 在「当任务队列清空后」增加「关闭模拟器」选项（第 6 节）。开启该项后，「实例在跑、模拟器已关」会变成常态，
+   因此第 2 项必须以第 1 项为前提，否则一开就崩（见第 7 节）。
 
 ---
 
@@ -141,7 +147,12 @@ elif '(10061)' in msg:
 
 **R5. 不改变适用范围**
 - 仅 Windows + 真实模拟器生效。非 Windows、手机云、HTTP 连接（`DEVICE_OVER_HTTP`）路径行为保持完全不变。
-- 不要修改 `EmulatorInfo` 配置项、不要新增用户可见配置。
+- 不要修改 `EmulatorInfo` 配置项；本任务唯一允许新增的用户可见配置是第 6 节的 `close_emulator` 选项。
+
+**R6. 新增配置项：`Optimization.WhenTaskQueueEmpty` 增加「关闭模拟器」**
+- 新增第四个选项 `close_emulator`：无任务时关闭游戏并把模拟器整机停掉，等待期间彻底释放资源；
+  唤醒后不做任何“特殊启动”，由 R1 的任务前检查自动拉起。
+- 完整改动清单、实现代码与 MuMu 特有的竞态坑见**第 6 节**。
 
 ## 5. 实现建议（可调整，但请说明理由）
 
@@ -180,7 +191,87 @@ def emulator_check(self) -> bool:
 - ❌ 把存活检查塞进 `Device.screenshot()` 循环：每帧几十毫秒，会显著拖慢识别。
 - ❌ 在 `platform_windows.emulator_start()` 里加“如果活着就跳过 stop”：会改变 `Start` 任务（用户主动重启模拟器）的语义。
 
-## 6. 验收标准（请逐条自测并给出结果）
+## 6. 新增配置项：`Optimization.WhenTaskQueueEmpty` 增加 `close_emulator`
+
+### 6.1 需求
+在「设置 → 优化 → 当任务队列清空后」现有三个选项（`stay_there` / `goto_main` / `close_game`）之后，
+**追加第四个选项「关闭模拟器」**：无任务时把游戏关掉、再把模拟器整机停掉，等待期间释放内存与 CPU；
+到点后被下一轮任务按 R1 自动拉起。
+
+语义与 `close_game` 保持一致（唤醒后 `task_call('Restart')` 恢复游戏），区别只在于多停一个模拟器。
+
+### 6.2 需要改动的文件（缺一不可）
+
+| 文件 | 改什么 |
+|---|---|
+| `module/config/argument/argument.yaml:96-98` | `option: [ stay_there, goto_main, close_game, close_emulator ]` |
+| `module/config/argument/args.json`（第 428 行起的 `WhenTaskQueueEmpty.option`） | 生成产物，由生成器写入 |
+| `module/config/config_generated.py:44` | 注释同步：`# stay_there, goto_main, close_game, close_emulator` |
+| `module/config/i18n/zh-CN.json`（569-575 行区域） | `"close_emulator": "关闭模拟器"` |
+| `module/config/i18n/zh-TW.json` | `"close_emulator": "關閉模擬器"` |
+| `module/config/i18n/en-US.json` | `"close_emulator": "Close Emulator"` |
+| `module/config/i18n/ja-JP.json` | `"close_emulator": "エミュレーターを終了"` |
+| `alas.py:528-562`（`get_next_task()` 里的 `method` 分支） | 新增 `elif method == 'close_emulator':` |
+
+生成命令（在仓库根执行，脚本内部会自行 `chdir`）：
+
+```
+python -m module.config.config_updater
+```
+
+⚠️ 该命令会重写 `args.json` / `config_generated.py` / 四个 i18n / `template.json`。
+**跑完必须 `git diff` 逐文件确认只包含本次预期变更**；本仓库带多个 submodule（`submodule/AlasMaaBridge` 等有各自的
+`config_updater.py`），不要顺手把子模块的配置一起生成掉。
+
+### 6.3 `alas.py` 分支实现（照 `close_game` 的样子写）
+
+```python
+elif method == 'close_emulator':
+    logger.info('Close emulator during wait')
+    self.device.app_stop()
+    release_resources()
+    self.device.release_during_wait()
+    if not self.device.emulator_stop():
+        logger.warning('Failed to stop emulator, fallback to close_game')
+    if not self.wait_until(task.next_run):
+        del_cached_property(self, 'config')
+        continue
+    if task.command != 'Restart':
+        self.config.task_call('Restart')
+        del_cached_property(self, 'config')
+        continue
+```
+
+必须注意：
+- `app_stop()` 要排在 `emulator_stop()` **之前**，否则 MuMu 可能弹「应用无响应」阻塞关机。
+- `emulator_stop()` 在 `PlatformBase`（非 Windows）是空实现、返回 `None`；在 `PlatformWindows` 返回 `True/False`。
+  用 `if not ...` 判断，不要把 `None` 当成成功。
+- 停不掉时**回落成 `close_game` 的语义**（游戏已关、模拟器还在），不要让后面的流程误以为模拟器已关闭。
+- **不要**在这里调 `emulator_start()`。唤醒后的模拟器启动必须由 R1/R2 的任务前检查负责——这是本任务的核心，
+  在这里补一个启动调用会把两套恢复逻辑搅在一起。
+- 不要改默认值（仍是 `goto_main`），不要调整现有三个选项的顺序。
+
+### 6.4 MuMu 特有坑（务必处理）
+
+`platform_windows._emulator_stop()` 对 MuMu12 只是发一条
+`MuMuManager.exe api -v N shutdown_player`（`platform_windows.py:158-162`），**是异步的、不等待关机完成**。
+而 `emulator_start()` 内部第一步又是 `shutdown_player`（先 stop 再 start）。
+
+因此：如果用户在等待期结束后立刻触发下一轮，可能出现「上一个实例还在关，新的 start 已经在跑」的竞态，
+或者 `nemu_connect` 连到一个正在销毁的实例。
+
+要求：`emulator_stop()` 之后、进入 `wait_until()` 之前，轮询 `self.list_device()` 直到该 serial 消失
+（上限建议 30s，超时只打 warning 不阻塞）；或者在 R2 启动前做同样的「确认实例已彻底消失」判断。
+两种做法选一种，并在交付说明里写清选了哪种。
+
+## 7. 该选项与 R1-R4 是同一条链，必须一起交付
+
+开启 `close_emulator` 之后，「ALAS 实例在运行、但模拟器处于关闭状态」会从异常场景变成**每次等待都会发生的常态**。
+
+所以：**只加选项不修 R1-R4，用户一开这个选项就会 100% 复现第 2 节的崩溃**（下次任务第一个截图就 `RequestHumanTakeover`）。
+如果时间有限只能交付一部分，请先交付 R1-R4，再交付本节的选项。
+
+## 8. 验收标准（请逐条自测并给出结果）
 
 1. **掉线自愈**：实例处于等待期（`Wait until ...`）时，手动执行
    `MuMuManager.exe api -v 1 shutdown_player` 杀掉模拟器；等下一个任务到点，
@@ -193,8 +284,15 @@ def emulator_check(self) -> bool:
 5. **状态刷新**：自愈后 `nemu_ipc` 截图、minitouch/maatouch 点击均正常（跑完一个真实任务验证，例如 `Reward`）。
 6. **语法兼容**：`toolkit/python.exe -m compileall module alas.py` 通过（Python 3.7.6）。
 7. **不回归**：`tests/` 下现有测试若有涉及 device 初始化的用例，需保持通过。
+8. **关闭模拟器选项（真机）**：设为「关闭模拟器」后进入等待，日志应出现
+   `Close emulator during wait` → `Execute: ... api -v 1 shutdown_player`，模拟器窗口消失；
+   到点后自动 `launch_player` → `Emulator online` → 继续执行任务，进程不退出。
+9. **关闭模拟器选项（降级）**：在非 Windows 或手机云环境下选该选项，
+   应打印明确 warning 并回落为「关闭游戏」语义，不得异常、不得卡死。
+10. **配置兼容**：旧配置文件（值为 `goto_main` / `close_game` / `stay_there`）升级后不受影响；
+   四种语言的 GUI 都能正确显示新选项文案；`template.json` 正常生成。
 
-## 7. 交付物
+## 9. 交付物
 
 1. 改动文件的 unified diff（或逐文件 diff）。
 2. 一段说明：每个改动点解决了上面哪条需求（R1-R5），以及为什么放在那个位置。

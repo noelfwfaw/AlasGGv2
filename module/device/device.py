@@ -11,6 +11,7 @@ from module.device.pkg_resources import get_distribution
 _ = get_distribution
 
 from module.base.timer import Timer
+from module.base.decorator import del_cached_property
 from module.config.utils import get_server_next_update
 from module.device.app_control import AppControl
 from module.device.control import Control
@@ -219,6 +220,110 @@ class Device(Screenshot, Control, AppControl):
             self._scrcpy_server_stop()
         if self.config.Emulator_ScreenshotMethod == 'nemu_ipc':
             self.nemu_ipc_release()
+
+    def device_alive(self):
+        """
+        廉价探测设备是否仍在 adb 设备列表中且状态为 device。
+
+        不能用 adb_connect() 做探测，它在模拟器不在时要走 10061 -> 暴力重连 4 个端口
+        -> detect_device() -> check_mumu_bridge_network()，实测耗时 4 秒以上。
+        这里正常情况只有一次 `adb devices`（约 30ms）。
+
+        Returns:
+            bool: True 表示设备可用，False 表示设备不在
+        """
+        if self.is_over_http or not self.is_emulator:
+            return True
+
+        def in_device_list():
+            device = self.list_device().select(serial=self.serial).first_or_none()
+            return device is not None and device.status == 'device'
+
+        if in_device_list():
+            return True
+
+        # 不在列表里或者不是 device 状态，补一次 adb connect 确认，
+        # 避免 adb 缓存抖动造成的误判
+        try:
+            msg = self.adb_client.connect(self.serial)
+            logger.info(msg)
+        except Exception as e:
+            logger.info(e)
+            return False
+        return in_device_list()
+
+    def emulator_check(self):
+        """
+        运行期设备存活检查，必要时拉起模拟器。
+
+        调度器每个任务开始前都会调用一次。设备正常时只有一次 adb 探测的开销，
+        且不产生 WARNING 及以上日志。模拟器中途掉线时，这里负责把它重新拉起来，
+        而不是让整个 ALAS 实例 RequestHumanTakeover 退出。
+
+        Returns:
+            bool: True 表示设备可用（含刚刚被拉起），False 表示无法恢复
+        """
+        if not IS_WINDOWS:
+            return True
+        if self.is_over_http or not self.is_emulator:
+            return True
+
+        if self.device_alive():
+            return True
+
+        logger.critical(f'Device {self.serial} is not available, checking emulator')
+        # MuMu 重启后 adb 端口可能漂移，重新枚举实例拿最新的 serial
+        del_cached_property(self, 'emulator_instance')
+        instance = self.emulator_instance
+        # serial 写错或找不到实例时不能尝试启动，_emulator_function_wrapper 必然失败并空转
+        if instance is None:
+            logger.critical(
+                f'No emulator with serial "{self.config.Emulator_Serial}" found, '
+                f'please set a correct serial'
+            )
+            return False
+        if instance.serial != self.serial:
+            logger.warning(f'Emulator serial changed from {self.serial} to {instance.serial}')
+            self.config.Emulator_Serial = self.serial = instance.serial
+            del_cached_property(self, 'adb')
+
+        logger.critical('Emulator is not running, trying to start it')
+        if not self.emulator_start():
+            logger.critical('Failed to start emulator')
+            return False
+
+        # 旧的 nemu_ipc connect_id 与 adb 连接都指向已经死掉的实例。
+        # adb_reconnect() 里的 detect_device() 会把 serial 修正成 adb 实际认得的那个
+        self.nemu_ipc_release()
+        self.adb_reconnect()
+        del_cached_property(self, 'adb')
+        logger.critical('Emulator restarted, device is available now')
+        return True
+
+    def emulator_stop_and_wait(self, timeout=30):
+        """
+        关闭模拟器，并等待该 serial 从 adb 设备列表消失。
+
+        MuMu12 的 shutdown_player 是异步的（只发命令不等待关机完成），
+        不等它关完就进入等待期的话，下一个任务拉起模拟器时会与仍在销毁的实例撞车。
+
+        Returns:
+            bool: 模拟器是否已关闭。非 Windows 平台不支持停止模拟器，返回 False
+        """
+        if not self.emulator_stop():
+            return False
+
+        timer = Timer(timeout).start()
+        interval = Timer(1).start()
+        while 1:
+            interval.wait()
+            interval.reset()
+            if not self.list_device().select(serial=self.serial):
+                logger.info('Emulator stopped')
+                return True
+            if timer.reached():
+                logger.warning(f'Emulator still in adb device list after {timeout}s, continue anyway')
+                return True
 
     def get_orientation(self):
         """
