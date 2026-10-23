@@ -25,7 +25,7 @@ class GeneratedConfig:
     Error_OnePushConfig = 'provider: null'
 
     # Group `Optimization`
-    Optimization_WhenTaskQueueEmpty = 'stay_there'
+    Optimization_WhenTaskQueueEmpty = 'stay_there'  # stay_there, close_game
 
     # Group `MaaEmulator`
     MaaEmulator_Serial = '127.0.0.1:5555'
@@ -38,6 +38,11 @@ class GeneratedConfig:
     MaaRecord_ReportToPenguin = False
     MaaRecord_PenguinID = None
     MaaRecord_ReportToYiTuLiu = False
+
+    # Group `MaaUpdate`
+    MaaUpdate_AutoUpdateResource = True
+    MaaUpdate_UpdatePackage = False
+    MaaUpdate_VersionType = 'Stable'  # Stable, Beta, Nightly
 
     # Group `MaaFight`
     MaaFight_Stage = 'last'  # last, 1-7, LS-6, CA-5, SK-5, AP-5, CE-6, PR-A-1, PR-A-2, PR-B-1, PR-B-2, PR-C-1, PR-C-2, PR-D-1, PR-D-2, custom
@@ -99,23 +104,60 @@ class GeneratedConfig:
     MaaMall_BlackList = '碳 > 家具 > 加急许可'
 
     # Group `MaaRoguelike`
-    MaaRoguelike_Theme = 'Sarkaz'  # Phantom, Mizuki, Sami, Sarkaz
-    MaaRoguelike_Mode = 0  # 0, 1, 4
+    MaaRoguelike_Theme = 'Sarkaz'  # Phantom, Mizuki, Sami, Sarkaz, JieGarden, BlackFlow
+    MaaRoguelike_Mode = 0  # 0, 1, 4, 5, 6, 7, 10001, 20001, 30001, 30003
+    MaaRoguelike_Difficulty = 0  # 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
     MaaRoguelike_StartsCount = 9999999
+    MaaRoguelike_InvestmentEnabled = True
     MaaRoguelike_InvestmentsCount = 9999999
     MaaRoguelike_StopWhenInvestmentFull = False
-    MaaRoguelike_Squad = '指挥分队'  # 魂灵护送分队, 博闻广记分队, 蓝图测绘分队, 因地制宜分队, 永恒狩猎分队, 生活至上分队, 科学主义分队, 特训分队, 心胜于物分队, 物尽其用分队, 以人为本分队, 指挥分队, 集群分队, 后勤分队, 矛头分队, 突击战术分队, 堡垒战术分队, 远程战术分队, 破坏战术分队, 研究分队, 高规格分队
-    MaaRoguelike_Roles = '取长补短'  # 先手必胜, 稳扎稳打, 取长补短, 随心所欲
+    MaaRoguelike_InvestmentWithMoreScore = False
+    MaaRoguelike_StopAtFinalBoss = False
+    MaaRoguelike_StopAtMaxLevel = False
+    MaaRoguelike_Squad = '指挥分队'  # 指挥分队, 后勤分队, 突击战术分队, 堡垒战术分队, 远程战术分队, 破坏战术分队, 集群分队, 矛头分队, 研究分队, 心胜于物分队, 物尽其用分队, 以人为本分队, 永恒狩猎分队, 生活至上分队, 科学主义分队, 特训分队, 魂灵护送分队, 博闻广记分队, 蓝图测绘分队, 因地制宜分队, 异想天开分队, 点刺成锭分队, 拟态学者分队, 专业人士分队, 特勤分队, 高台突破分队, 地面突破分队, 游客分队, 司岁台分队, 天师府分队, 花团锦簇分队, 棋行险着分队, 岁影回音分队, 代理人分队, 知学分队, 商贾分队, 本源研修分队, 文明开化分队, 开拓者分队, 多边贸易分队, 地质调查分队, 团结阵线分队, 踏足遍历分队, 高规格分队
+    MaaRoguelike_Roles = '取长补短'  # 先手必胜, 稳扎稳打, 取长补短, 灵活部署, 坚不可摧, 随心所欲
     MaaRoguelike_CoreChar = None
     MaaRoguelike_Support = 'no_use'  # no_use, friend_support, nonfriend_support
     MaaRoguelike_startWithEliteTwo = 'no_use'  # no_use, start_with_elite_two, only_start_with_elite_two
     MaaRoguelike_refreshTraderWithDice = False
+    MaaRoguelike_CollectibleModeShopping = False
+    MaaRoguelike_CollectibleModeSquad = None
+    MaaRoguelike_CollectibleModeRewards = '热水壶 > 希望'
+    MaaRoguelike_SamiFirstFloorFoldartal = None
+    MaaRoguelike_SamiStartFoldartals = None
+    MaaRoguelike_ExpectedCollapsalParadigms = '目空一些 > 睁眼瞎 > 图像损坏 > 一抹黑'
+    MaaRoguelike_MonthlySquadAutoIterate = True
+    MaaRoguelike_MonthlySquadCheckComms = False
+    MaaRoguelike_DeepExplorationAutoIterate = True
+    MaaRoguelike_FindPlaytimeTarget = 1  # 1, 2, 3
+    MaaRoguelike_StartWithSeed = None
+    MaaRoguelike_BlackFlowStrategy = 'ending1'  # ending1, ending2, ending3
+    MaaRoguelike_BlackFlowStartAnimals = None
+    MaaRoguelike_BlackFlowStartRewards = None
+
+    # Group `MaaReclamation`
+    MaaReclamation_Theme = 'Tales'  # Tales, RelaunchAnchor
+    MaaReclamation_Mode = 0  # 0, 1, 16, 32, 48
+    MaaReclamation_ClearStore = False
+    MaaReclamation_ToolsToCraft = '荧光棒'
+    MaaReclamation_IncrementMode = 0  # 0, 1
+    MaaReclamation_NumCraftBatches = 16
 
     # Group `MaaAward`
+    MaaAward_DailyAward = True
     MaaAward_Mail = False
     MaaAward_Recruit = False
     MaaAward_Orundum = False
+    MaaAward_Mining = False
     MaaAward_Specialaccess = False
+    MaaAward_SignInEvent = False
+
+    # Group `MaaDataUpdate`
+    MaaDataUpdate_UpdateOperBox = True
+    MaaDataUpdate_UpdateDepot = True
+
+    # Group `MaaOperProgress`
+    MaaOperProgress_Plans = '[]'
 
     # Group `MaaCopilot`
     MaaCopilot_FileName = None

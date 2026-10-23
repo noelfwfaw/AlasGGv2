@@ -5,8 +5,8 @@
       "help": "Menu.Maa.help"
     },
     "Tool": {
-      "name": "Menu.Tool.name",
-      "help": "Menu.Tool.help"
+      "name": "ツール",
+      "help": ""
     }
   },
   "Task": {
@@ -43,8 +43,8 @@
       "help": "Task.MaaMall.help"
     },
     "MaaAward": {
-      "name": "Task.MaaAward.name",
-      "help": "Task.MaaAward.help"
+      "name": "報酬を受け取る",
+      "help": "デイリー任務・メール・イベントなどの報酬を受け取ります"
     },
     "MaaRoguelike": {
       "name": "Task.MaaRoguelike.name",
@@ -52,11 +52,23 @@
     },
     "MaaReclamationAlgorithm": {
       "name": "Task.MaaReclamationAlgorithm.name",
-      "help": "Task.MaaReclamationAlgorithm.help"
+      "help": "事前に手動で生息演算に入り、セーブや入口を作っておく必要があります"
+    },
+    "MaaDataUpdate": {
+      "name": "データ更新",
+      "help": "干員 box と倉庫を認識し、config/maa に保存します"
+    },
+    "MaaOperProgress": {
+      "name": "干員育成",
+      "help": "昇進・スキルレベル上げ・特化を自動実行\n先に「データ更新」を一度実行して倉庫キャッシュを最新にしてください"
     },
     "MaaCopilot": {
       "name": "Task.MaaCopilot.name",
       "help": "Task.MaaCopilot.help"
+    },
+    "MaaUpdate": {
+      "name": "MAA を更新",
+      "help": "MAA のタスクリソースと本体を今すぐ確認・更新します"
     }
   },
   "Scheduler": {
@@ -115,12 +127,14 @@
   },
   "Optimization": {
     "_info": {
-      "name": "Optimization._info.name",
-      "help": "Optimization._info.help"
+      "name": "最適化設定",
+      "help": ""
     },
     "WhenTaskQueueEmpty": {
-      "name": "Optimization.WhenTaskQueueEmpty.name",
-      "help": "Optimization.WhenTaskQueueEmpty.help"
+      "name": "すべてのタスク完了後",
+      "help": "すべての MAA タスクが完了し、次回実行を待つ間の動作\nメイン画面で待機：何もせず、MAA のタスク終了後は通常メイン画面に戻ります\nゲームを終了：MAA でゲームを終了し、待機中の CPU 使用率を抑えます。次のタスク開始前に自動でゲームを起動します",
+      "stay_there": "メイン画面で待機",
+      "close_game": "ゲームを終了"
     }
   },
   "MaaEmulator": {
@@ -174,6 +188,27 @@
     "ReportToYiTuLiu": {
       "name": "MaaRecord.ReportToYiTuLiu.name",
       "help": "MaaRecord.ReportToYiTuLiu.help"
+    }
+  },
+  "MaaUpdate": {
+    "_info": {
+      "name": "MAA 更新設定",
+      "help": ""
+    },
+    "AutoUpdateResource": {
+      "name": "タスクリソースを自動更新",
+      "help": "MAA タスクの実行前に、イベントステージなどの差分リソース（tasks.json）を確認・取得します\nサイズは約 15 KB と小さく、失敗してもタスクは継続します"
+    },
+    "UpdatePackage": {
+      "name": "MAA 本体を自動更新",
+      "help": "新しい MaaCore を確認し、完全パッケージ（約 300 MB）をダウンロードします\nMaaCore 使用中は置き換えできないため、次回 Alas 起動時にインストールされます"
+    },
+    "VersionType": {
+      "name": "更新チャンネル",
+      "help": "Stable / Beta / Nightly\nチャンネルごとに MaaCore とリソースの組み合わせが決まっているため、通常は変更不要です",
+      "Stable": "安定版",
+      "Beta": "ベータ版",
+      "Nightly": "ナイトリー版"
     }
   },
   "MaaFight": {
@@ -516,18 +551,54 @@
       "Phantom": "Phantom",
       "Mizuki": "Mizuki",
       "Sami": "Sami",
-      "Sarkaz": "Sarkaz"
+      "Sarkaz": "Sarkaz",
+      "JieGarden": "歳の界園志異",
+      "BlackFlow": "黒流樹海"
     },
     "Mode": {
       "name": "MaaRoguelike.Mode.name",
       "help": "MaaRoguelike.Mode.help",
       "0": "0",
       "1": "1",
-      "4": "4"
+      "4": "4",
+      "5": "崩壊範式周回(サ米)",
+      "6": "月次小隊",
+      "7": "深層調査",
+      "10001": "1層を高速通過(サルカズ)",
+      "20001": "常楽ノード周回(界園)",
+      "30001": "襁褓動物周回(黒流)",
+      "30003": "動物と開始報酬周回(黒流)"
+    },
+    "Difficulty": {
+      "name": "難易度",
+      "help": "テーマ上限：ファントム15、ミヅキ18、サーミ15、サルカズ18、界園18、黒流16\n未解放時は解放済みの最高難易度を使用",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "10",
+      "11": "11",
+      "12": "12",
+      "13": "13",
+      "14": "14",
+      "15": "15",
+      "16": "16",
+      "17": "17",
+      "18": "18"
     },
     "StartsCount": {
       "name": "MaaRoguelike.StartsCount.name",
       "help": "MaaRoguelike.StartsCount.help"
+    },
+    "InvestmentEnabled": {
+      "name": "源石錠を投資する",
+      "help": "無効時は投資しない"
     },
     "InvestmentsCount": {
       "name": "MaaRoguelike.InvestmentsCount.name",
@@ -537,29 +608,64 @@
       "name": "MaaRoguelike.StopWhenInvestmentFull.name",
       "help": "MaaRoguelike.StopWhenInvestmentFull.help"
     },
+    "InvestmentWithMoreScore": {
+      "name": "投資後に買い物",
+      "help": "モード1のみ有効"
+    },
+    "StopAtFinalBoss": {
+      "name": "5層の強敵前に停止",
+      "help": "ファントムでは無効"
+    },
+    "StopAtMaxLevel": {
+      "name": "レベル最大で停止",
+      "help": ""
+    },
     "Squad": {
       "name": "MaaRoguelike.Squad.name",
       "help": "MaaRoguelike.Squad.help",
-      "魂灵护送分队": "魂灵护送分队",
-      "博闻广记分队": "博闻广记分队",
-      "蓝图测绘分队": "蓝图测绘分队",
-      "因地制宜分队": "因地制宜分队",
-      "永恒狩猎分队": "永恒狩猎分队",
-      "生活至上分队": "生活至上分队",
-      "科学主义分队": "科学主义分队",
-      "特训分队": "特训分队",
-      "心胜于物分队": "心胜于物分队",
-      "物尽其用分队": "物尽其用分队",
-      "以人为本分队": "以人为本分队",
       "指挥分队": "指挥分队",
-      "集群分队": "集群分队",
       "后勤分队": "后勤分队",
-      "矛头分队": "矛头分队",
       "突击战术分队": "突击战术分队",
       "堡垒战术分队": "堡垒战术分队",
       "远程战术分队": "远程战术分队",
       "破坏战术分队": "破坏战术分队",
+      "集群分队": "集群分队",
+      "矛头分队": "矛头分队",
       "研究分队": "研究分队",
+      "心胜于物分队": "心胜于物分队",
+      "物尽其用分队": "物尽其用分队",
+      "以人为本分队": "以人为本分队",
+      "永恒狩猎分队": "永恒狩猎分队",
+      "生活至上分队": "生活至上分队",
+      "科学主义分队": "科学主义分队",
+      "特训分队": "特训分队",
+      "魂灵护送分队": "魂灵护送分队",
+      "博闻广记分队": "博闻广记分队",
+      "蓝图测绘分队": "蓝图测绘分队",
+      "因地制宜分队": "因地制宜分队",
+      "异想天开分队": "异想天开分队",
+      "点刺成锭分队": "点刺成锭分队",
+      "拟态学者分队": "拟态学者分队",
+      "专业人士分队": "专业人士分队",
+      "特勤分队": "特勤分队",
+      "高台突破分队": "高台突破分队",
+      "地面突破分队": "地面突破分队",
+      "游客分队": "游客分队",
+      "司岁台分队": "司岁台分队",
+      "天师府分队": "天师府分队",
+      "花团锦簇分队": "花团锦簇分队",
+      "棋行险着分队": "棋行险着分队",
+      "岁影回音分队": "岁影回音分队",
+      "代理人分队": "代理人分队",
+      "知学分队": "知学分队",
+      "商贾分队": "商贾分队",
+      "本源研修分队": "本源研修分队",
+      "文明开化分队": "文明开化分队",
+      "开拓者分队": "开拓者分队",
+      "多边贸易分队": "多边贸易分队",
+      "地质调查分队": "地质调查分队",
+      "团结阵线分队": "团结阵线分队",
+      "踏足遍历分队": "踏足遍历分队",
       "高规格分队": "高规格分队"
     },
     "Roles": {
@@ -568,6 +674,8 @@
       "先手必胜": "先手必胜",
       "稳扎稳打": "稳扎稳打",
       "取长补短": "取长补短",
+      "灵活部署": "灵活部署",
+      "坚不可摧": "坚不可摧",
       "随心所欲": "随心所欲"
     },
     "CoreChar": {
@@ -591,28 +699,165 @@
     "refreshTraderWithDice": {
       "name": "MaaRoguelike.refreshTraderWithDice.name",
       "help": "MaaRoguelike.refreshTraderWithDice.help"
+    },
+    "CollectibleModeShopping": {
+      "name": "開始厳選時に買い物",
+      "help": "モード4のみ有効"
+    },
+    "CollectibleModeSquad": {
+      "name": "開始厳選時の分隊",
+      "help": "空欄なら「開始分隊」と同じ"
+    },
+    "CollectibleModeRewards": {
+      "name": "開始厳選の希望報酬",
+      "help": "> 区切りで指定。例：热水壶 > 希望\nhot_water / shield / ingot / hope / random / key / dice / ideas / ticket"
+    },
+    "SamiFirstFloorFoldartal": {
+      "name": "1層の密文板",
+      "help": "サーミのみ、入手したら停止"
+    },
+    "SamiStartFoldartals": {
+      "name": "開始時の希望密文板",
+      "help": "サーミのモード4のみ、生活至上分隊と併用"
+    },
+    "ExpectedCollapsalParadigms": {
+      "name": "希望する崩壊範式",
+      "help": "サーミのモード5のみ、> 区切り"
+    },
+    "MonthlySquadAutoIterate": {
+      "name": "月次小隊を自動切替",
+      "help": ""
+    },
+    "MonthlySquadCheckComms": {
+      "name": "通信も切替条件に含める",
+      "help": ""
+    },
+    "DeepExplorationAutoIterate": {
+      "name": "深層調査を自動切替",
+      "help": ""
+    },
+    "FindPlaytimeTarget": {
+      "name": "常楽ノードの目標",
+      "help": "界園のモード20001のみ",
+      "1": "令",
+      "2": "黍",
+      "3": "年"
+    },
+    "StartWithSeed": {
+      "name": "シード",
+      "help": "空欄で無効。サルカズの点刺成錠分隊/後勤分隊の金策時のみ"
+    },
+    "BlackFlowStrategy": {
+      "name": "黒流樹海のエンディング",
+      "help": "黒流樹海のモード0のみ",
+      "ending1": "エンディング1",
+      "ending2": "エンディング2",
+      "ending3": "エンディング3"
+    },
+    "BlackFlowStartAnimals": {
+      "name": "開始時の動物",
+      "help": "黒流樹海のモード30003のみ、最大2匹\n猫 / 犬 / ケルベロス / 羽蛇"
+    },
+    "BlackFlowStartRewards": {
+      "name": "開始時の希望報酬",
+      "help": "黒流樹海のモード30003のみ、> 区切り\n通常：未編号物 / 調査前払い / 空間賃貸 / 退行補償 / 林間移動 / 巣寄生\n羽蛇専用：天馬 / 駿鷹 / 巨龍 / ヒュドラ / 白澤 / 金烏"
+    }
+  },
+  "MaaReclamation": {
+    "_info": {
+      "name": "生息演算の設定",
+      "help": ""
+    },
+    "Theme": {
+      "name": "テーマ",
+      "help": "砂洲遺聞：繁栄ポイント周回\nリローンチアンカー：RA-1 / RA-4 / RA-15 周回",
+      "Tales": "砂洲遺聞",
+      "RelaunchAnchor": "リローンチアンカー"
+    },
+    "Mode": {
+      "name": "モード",
+      "help": "砂洲遺聞：0 セーブ無し、1 セーブ有り（自動製造+ロード）\nリローンチアンカー：16 RA-1、32 RA-15、48 RA-4",
+      "0": "繁栄ポイント（セーブ無し）",
+      "1": "繁栄ポイント（セーブ有り）",
+      "16": "RA-1",
+      "32": "RA-15",
+      "48": "RA-4"
+    },
+    "ClearStore": {
+      "name": "ストアを空にする",
+      "help": "砂洲遺聞のセーブ無しモードのみ"
+    },
+    "ToolsToCraft": {
+      "name": "自動製造するアイテム",
+      "help": "> 区切り、名前の一部で一致"
+    },
+    "IncrementMode": {
+      "name": "タップ方式",
+      "help": "",
+      "0": "連打",
+      "1": "長押し"
+    },
+    "NumCraftBatches": {
+      "name": "1回の最大製造回数",
+      "help": "1バッチ99個"
     }
   },
   "MaaAward": {
     "_info": {
-      "name": "MaaAward._info.name",
-      "help": "MaaAward._info.help"
+      "name": "報酬を受け取る",
+      "help": ""
+    },
+    "DailyAward": {
+      "name": "デイリー/ウィークリー任務の報酬を受け取る",
+      "help": ""
     },
     "Mail": {
-      "name": "MaaAward.Mail.name",
-      "help": "MaaAward.Mail.help"
+      "name": "すべてのメール報酬を受け取る",
+      "help": ""
     },
     "Recruit": {
-      "name": "MaaAward.Recruit.name",
-      "help": "MaaAward.Recruit.help"
+      "name": "限定ガチャの毎日無料単発を引く",
+      "help": "危険な機能です。意図しない単発を引く可能性があります\n無料単発がない場合は何も行いません"
     },
     "Orundum": {
-      "name": "MaaAward.Orundum.name",
-      "help": "MaaAward.Orundum.help"
+      "name": "ラッキーウォールの毎日合成玉報酬を受け取る",
+      "help": ""
+    },
+    "Mining": {
+      "name": "期間限定採掘許可の毎日合成玉報酬を受け取る",
+      "help": ""
     },
     "Specialaccess": {
-      "name": "MaaAward.Specialaccess.name",
-      "help": "MaaAward.Specialaccess.help"
+      "name": "周年記念の月次カード報酬を受け取る",
+      "help": ""
+    },
+    "SignInEvent": {
+      "name": "期間限定サインインイベントの報酬を受け取る",
+      "help": ""
+    }
+  },
+  "MaaDataUpdate": {
+    "_info": {
+      "name": "データ更新",
+      "help": ""
+    },
+    "UpdateOperBox": {
+      "name": "干員 box を認識",
+      "help": "所持干員をページごとに認識します（昇進 / レベル / 潜在）\nconfig/maa/operbox.json に保存"
+    },
+    "UpdateDepot": {
+      "name": "倉庫を認識",
+      "help": "倉庫内の素材数を認識します\nconfig/maa/depot.json に保存"
+    }
+  },
+  "MaaOperProgress": {
+    "_info": {
+      "name": "干員育成",
+      "help": ""
+    },
+    "Plans": {
+      "name": "育成プラン",
+      "help": "JSON 配列。1 項目につき 1 つの育成操作（MAA の「クリップボードからプランをインポート」と同じ形式）\n例：\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname：干員名（必須）\nelite：昇進目標、1 または 2\nskill_level：スキルレベル目標、2~7\nskill_mastery：3 つのスキルの特化レベル、0~3（例 [3, 0, 0]）\n同じ干員を複数行に分けて順番に実行できます。同名で職分が異なる場合は \"role\"（例 \"role\": \"Caster\"）を追加してください\n空欄または [] の場合は実行しません"
     }
   },
   "MaaCopilot": {

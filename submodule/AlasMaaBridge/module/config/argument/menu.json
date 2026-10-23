@@ -13,14 +13,17 @@
       "MaaMall",
       "MaaAward",
       "MaaRoguelike",
-      "MaaReclamationAlgorithm"
+      "MaaReclamationAlgorithm",
+      "MaaDataUpdate",
+      "MaaOperProgress"
     ]
   },
   "Tool": {
     "menu": "list",
     "page": "tool",
     "tasks": [
-      "MaaCopilot"
+      "MaaCopilot",
+      "MaaUpdate"
     ]
   }
 }

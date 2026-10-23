@@ -5,8 +5,8 @@
       "help": "Menu.Maa.help"
     },
     "Tool": {
-      "name": "Menu.Tool.name",
-      "help": "Menu.Tool.help"
+      "name": "Tools",
+      "help": ""
     }
   },
   "Task": {
@@ -43,8 +43,8 @@
       "help": "will buy items in shop"
     },
     "MaaAward": {
-      "name": "Rewards",
-      "help": "reward collector (daily/weekly, specials and mail)"
+      "name": "Collect Rewards",
+      "help": "Collect daily mission, mail and event rewards"
     },
     "MaaRoguelike": {
       "name": "Roguelike (I.S.)",
@@ -52,11 +52,23 @@
     },
     "MaaReclamationAlgorithm": {
       "name": "ReclamationAlgorithm",
-      "help": "auto for Reclamation Algorithm"
+      "help": "Enter Reclamation once manually so the save or stage entrance exists"
+    },
+    "MaaDataUpdate": {
+      "name": "Update Data",
+      "help": "Recognize operator box and depot, saved under config/maa"
+    },
+    "MaaOperProgress": {
+      "name": "Operator Development",
+      "help": "Auto elite, skill level up and mastery\nRun \"Update Data\" once first so MAA has a fresh depot cache"
     },
     "MaaCopilot": {
       "name": "Copilot",
       "help": "will clear stages etc. after prewritten schema; current SSS included by default, more may be downloaded or self built"
+    },
+    "MaaUpdate": {
+      "name": "Update MAA",
+      "help": "Check and update MAA task resources and MAA core now"
     }
   },
   "Scheduler": {
@@ -119,8 +131,10 @@
       "help": ""
     },
     "WhenTaskQueueEmpty": {
-      "name": "When Task Queue is Empty",
-      "help": "Close AL when there are no pending tasks, can help reduce CPU"
+      "name": "When All Tasks Are Completed",
+      "help": "Action to take after all MAA tasks are done, while waiting for the next run\nStay at main page: do nothing, MAA usually leaves the game at the main page\nClose game: close the game client via MAA to reduce CPU usage while waiting, the game will be restarted automatically before the next task",
+      "stay_there": "Stay at main page",
+      "close_game": "Close game"
     }
   },
   "MaaEmulator": {
@@ -174,6 +188,27 @@
     "ReportToYiTuLiu": {
       "name": "Report to YiTuLiu",
       "help": "https://ark.yituliu.cn/"
+    }
+  },
+  "MaaUpdate": {
+    "_info": {
+      "name": "MAA Update",
+      "help": ""
+    },
+    "AutoUpdateResource": {
+      "name": "Auto update task resources",
+      "help": "Check and download incremental resources (tasks.json, e.g. event stages) before running MAA tasks.\nVery small (~15 KB), and a failure will not affect tasks"
+    },
+    "UpdatePackage": {
+      "name": "Auto update MAA",
+      "help": "Check for a new MaaCore and download the full package (~300 MB)\nMaaCore cannot be replaced while in use, the update is installed on the next Alas startup"
+    },
+    "VersionType": {
+      "name": "Update channel",
+      "help": "Stable, Beta or Nightly\nMaaCore and resources of a channel must match each other, usually no need to change",
+      "Stable": "Stable",
+      "Beta": "Beta",
+      "Nightly": "Nightly"
     }
   },
   "MaaFight": {
@@ -516,18 +551,54 @@
       "Phantom": "Phantom",
       "Mizuki": "Mizuki",
       "Sami": "Sami",
-      "Sarkaz": "Sarkaz"
+      "Sarkaz": "Sarkaz",
+      "JieGarden": "JieGarden",
+      "BlackFlow": "BlackFlow"
     },
     "Mode": {
       "name": "MaaRoguelike.Mode.name",
       "help": "MaaRoguelike.Mode.help",
       "0": "0",
       "1": "1",
-      "4": "4"
+      "4": "4",
+      "5": "Collapsal paradigms (Sami)",
+      "6": "Monthly squad",
+      "7": "Deep exploration",
+      "10001": "Fast pass floor 1 (Sarkaz)",
+      "20001": "Find playtime node (JieGarden)",
+      "30001": "Baby animals (BlackFlow)",
+      "30003": "Start animals and rewards (BlackFlow)"
+    },
+    "Difficulty": {
+      "name": "Difficulty",
+      "help": "Capped by theme: Phantom 15, Mizuki 18, Sami 15, Sarkaz 18, JieGarden 18, BlackFlow 16\nThe highest unlocked difficulty is used when not unlocked",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "10",
+      "11": "11",
+      "12": "12",
+      "13": "13",
+      "14": "14",
+      "15": "15",
+      "16": "16",
+      "17": "17",
+      "18": "18"
     },
     "StartsCount": {
       "name": "MaaRoguelike.StartsCount.name",
       "help": "MaaRoguelike.StartsCount.help"
+    },
+    "InvestmentEnabled": {
+      "name": "Invest originium ingots",
+      "help": "No investment when disabled"
     },
     "InvestmentsCount": {
       "name": "MaaRoguelike.InvestmentsCount.name",
@@ -537,29 +608,64 @@
       "name": "MaaRoguelike.StopWhenInvestmentFull.name",
       "help": "MaaRoguelike.StopWhenInvestmentFull.help"
     },
+    "InvestmentWithMoreScore": {
+      "name": "Shop after investing",
+      "help": "Only for mode 1"
+    },
+    "StopAtFinalBoss": {
+      "name": "Stop before floor 5 boss",
+      "help": "Not available on Phantom"
+    },
+    "StopAtMaxLevel": {
+      "name": "Stop at max level",
+      "help": ""
+    },
     "Squad": {
       "name": "MaaRoguelike.Squad.name",
       "help": "MaaRoguelike.Squad.help",
-      "魂灵护送分队": "Soul Escort (Sarkaz)",
-      "博闻广记分队": "Well-Informed (Sarkaz)",
-      "蓝图测绘分队": "Blueprint Surveying (Sarkaz)",
-      "因地制宜分队": "Adapting To Local Conditions (Sarkaz)",
-      "永恒狩猎分队": "Eternal Hunting (Sami)",
-      "生活至上分队": "Life Prioritizing (Sami)",
-      "科学主义分队": "Scientific Thinking (Sami)",
-      "特训分队": "Special Training (Sami)",
-      "心胜于物分队": "Mind Over Matter (Mizuki)",
-      "物尽其用分队": "Resourceful (Mizuki)",
-      "以人为本分队": "People-Oriented (Mizuki)",
       "指挥分队": "Leader",
-      "集群分队": "Gathering",
       "后勤分队": "Support",
-      "矛头分队": "Spearhead",
       "突击战术分队": "Tactical Assault",
       "堡垒战术分队": "Tactical Fortification",
       "远程战术分队": "Tactical Ranged",
       "破坏战术分队": "Tactical Destruction",
+      "集群分队": "Gathering",
+      "矛头分队": "Spearhead",
       "研究分队": "Research (Phantom, Mizuki)",
+      "心胜于物分队": "Mind Over Matter (Mizuki)",
+      "物尽其用分队": "Resourceful (Mizuki)",
+      "以人为本分队": "People-Oriented (Mizuki)",
+      "永恒狩猎分队": "Eternal Hunting (Sami)",
+      "生活至上分队": "Life Prioritizing (Sami)",
+      "科学主义分队": "Scientific Thinking (Sami)",
+      "特训分队": "Special Training (Sami)",
+      "魂灵护送分队": "Soul Escort (Sarkaz)",
+      "博闻广记分队": "Well-Informed (Sarkaz)",
+      "蓝图测绘分队": "Blueprint Surveying (Sarkaz)",
+      "因地制宜分队": "Adapting To Local Conditions (Sarkaz)",
+      "异想天开分队": "异想天开分队",
+      "点刺成锭分队": "点刺成锭分队",
+      "拟态学者分队": "拟态学者分队",
+      "专业人士分队": "专业人士分队",
+      "特勤分队": "特勤分队",
+      "高台突破分队": "高台突破分队",
+      "地面突破分队": "地面突破分队",
+      "游客分队": "游客分队",
+      "司岁台分队": "司岁台分队",
+      "天师府分队": "天师府分队",
+      "花团锦簇分队": "花团锦簇分队",
+      "棋行险着分队": "棋行险着分队",
+      "岁影回音分队": "岁影回音分队",
+      "代理人分队": "代理人分队",
+      "知学分队": "知学分队",
+      "商贾分队": "商贾分队",
+      "本源研修分队": "本源研修分队",
+      "文明开化分队": "文明开化分队",
+      "开拓者分队": "开拓者分队",
+      "多边贸易分队": "多边贸易分队",
+      "地质调查分队": "地质调查分队",
+      "团结阵线分队": "团结阵线分队",
+      "踏足遍历分队": "踏足遍历分队",
       "高规格分队": "First-Class"
     },
     "Roles": {
@@ -568,6 +674,8 @@
       "先手必胜": "First Move Advantage",
       "稳扎稳打": "Slow and Steady Wins the Race",
       "取长补短": "Overcoming Your Weaknesses",
+      "灵活部署": "灵活部署",
+      "坚不可摧": "坚不可摧",
       "随心所欲": "As Your Heart Desires"
     },
     "CoreChar": {
@@ -591,28 +699,165 @@
     "refreshTraderWithDice": {
       "name": "MaaRoguelike.refreshTraderWithDice.name",
       "help": "MaaRoguelike.refreshTraderWithDice.help"
+    },
+    "CollectibleModeShopping": {
+      "name": "Shop in collectible mode",
+      "help": "Only for mode 4"
+    },
+    "CollectibleModeSquad": {
+      "name": "Collectible mode squad",
+      "help": "Same as squad when empty"
+    },
+    "CollectibleModeRewards": {
+      "name": "Expected start rewards",
+      "help": "Separated by >, e.g. 热水壶 > 希望\nhot_water / shield / ingot / hope / random / key / dice / ideas / ticket"
+    },
+    "SamiFirstFloorFoldartal": {
+      "name": "Floor 1 foldartal",
+      "help": "Sami only, stop the task once obtained"
+    },
+    "SamiStartFoldartals": {
+      "name": "Expected start foldartals",
+      "help": "Sami only, mode 4, requires 生活至上分队"
+    },
+    "ExpectedCollapsalParadigms": {
+      "name": "Expected collapsal paradigms",
+      "help": "Sami only, mode 5, separated by >"
+    },
+    "MonthlySquadAutoIterate": {
+      "name": "Auto switch monthly squad",
+      "help": ""
+    },
+    "MonthlySquadCheckComms": {
+      "name": "Use squad comms as switch condition",
+      "help": ""
+    },
+    "DeepExplorationAutoIterate": {
+      "name": "Auto switch deep exploration",
+      "help": ""
+    },
+    "FindPlaytimeTarget": {
+      "name": "Playtime node target",
+      "help": "Only for JieGarden mode 20001",
+      "1": "Ling",
+      "2": "Shu",
+      "3": "Nian"
+    },
+    "StartWithSeed": {
+      "name": "Seed",
+      "help": "Leave empty to disable. Only for Sarkaz 点刺成锭分队 / 后勤分队 farming"
+    },
+    "BlackFlowStrategy": {
+      "name": "BlackFlow ending",
+      "help": "Only for BlackFlow mode 0",
+      "ending1": "Ending 1",
+      "ending2": "Ending 2",
+      "ending3": "Ending 3"
+    },
+    "BlackFlowStartAnimals": {
+      "name": "Start animals",
+      "help": "Only for BlackFlow mode 30003, at most 2\n猫 / 狗 / 三头犬 / 羽蛇"
+    },
+    "BlackFlowStartRewards": {
+      "name": "Expected start rewards",
+      "help": "Only for BlackFlow mode 30003, separated by >\nNormal: 未编号物 / 调查预付款 / 空间租赁 / 退行补偿 / 林间代步 / 巢寄生\nSerpent: 天马 / 骏鹰 / 巨龙 / 九头蛇 / 白泽 / 金乌"
+    }
+  },
+  "MaaReclamation": {
+    "_info": {
+      "name": "Reclamation settings",
+      "help": ""
+    },
+    "Theme": {
+      "name": "Theme",
+      "help": "Tales: farm prosperity\nRelaunchAnchor: farm RA-1 / RA-4 / RA-15 stages",
+      "Tales": "Tales Within the Sand",
+      "RelaunchAnchor": "Relaunch Anchor"
+    },
+    "Mode": {
+      "name": "Mode",
+      "help": "Tales: 0 without save, 1 with save (auto craft + reload)\nRelaunchAnchor: 16 RA-1, 32 RA-15, 48 RA-4",
+      "0": "Prosperity, no save",
+      "1": "Prosperity, with save",
+      "16": "RA-1",
+      "32": "RA-15",
+      "48": "RA-4"
+    },
+    "ClearStore": {
+      "name": "Clear the store",
+      "help": "Only for Tales without save"
+    },
+    "ToolsToCraft": {
+      "name": "Items to craft",
+      "help": "Separated by >, a part of the item name is enough"
+    },
+    "IncrementMode": {
+      "name": "Click type",
+      "help": "",
+      "0": "Multi click",
+      "1": "Long press"
+    },
+    "NumCraftBatches": {
+      "name": "Max craft batches",
+      "help": "99 items per batch"
     }
   },
   "MaaAward": {
     "_info": {
-      "name": "MaaAward._info.name",
-      "help": "MaaAward._info.help"
+      "name": "Collect Rewards",
+      "help": ""
+    },
+    "DailyAward": {
+      "name": "Claim daily / weekly mission rewards",
+      "help": ""
     },
     "Mail": {
-      "name": "MaaAward.Mail.name",
-      "help": "MaaAward.Mail.help"
+      "name": "Claim all mail rewards",
+      "help": ""
     },
     "Recruit": {
-      "name": "MaaAward.Recruit.name",
-      "help": "MaaAward.Recruit.help"
+      "name": "Free daily pull on the limited banner",
+      "help": "Risky: may pull unintentionally.\nNothing happens when there is no free pull available"
     },
     "Orundum": {
-      "name": "MaaAward.Orundum.name",
-      "help": "in events where you can for example open 2 coupons and you get the one wiht higher orundum"
+      "name": "Claim the daily Orundum from the Lucky Wall",
+      "help": ""
+    },
+    "Mining": {
+      "name": "Claim the daily Orundum from the limited-time mining permit",
+      "help": ""
     },
     "Specialaccess": {
-      "name": "MaaAward.Specialaccess.name",
-      "help": "MaaAward.Specialaccess.help"
+      "name": "Claim the anniversary monthly card reward",
+      "help": ""
+    },
+    "SignInEvent": {
+      "name": "Claim limited-time sign-in event rewards",
+      "help": ""
+    }
+  },
+  "MaaDataUpdate": {
+    "_info": {
+      "name": "Update Data",
+      "help": ""
+    },
+    "UpdateOperBox": {
+      "name": "Recognize operator box",
+      "help": "Recognize owned operators page by page (elite / level / potential)\nSaved to config/maa/operbox.json"
+    },
+    "UpdateDepot": {
+      "name": "Recognize depot",
+      "help": "Recognize material quantities in the depot\nSaved to config/maa/depot.json"
+    }
+  },
+  "MaaOperProgress": {
+    "_info": {
+      "name": "Operator Development",
+      "help": ""
+    },
+    "Plans": {
+      "name": "Development plans",
+      "help": "JSON array, one action per item, same format as MAA \"import plan from clipboard\"\nExample:\n[\n  {\"name\": \"艾雅法拉\", \"elite\": 2},\n  {\"name\": \"艾雅法拉\", \"skill_level\": 7},\n  {\"name\": \"史尔特尔\", \"skill_mastery\": [3, 0, 0]}\n]\n\nname: operator name (required)\nelite: elite target, 1 or 2\nskill_level: skill level target, 2~7\nskill_mastery: mastery of the 3 skills, 0~3, e.g. [3, 0, 0]\nAn operator can have several items, executed in order; add \"role\" (e.g. \"role\": \"Caster\") when names collide across roles\nEmpty or [] means nothing to do"
     }
   },
   "MaaCopilot": {
