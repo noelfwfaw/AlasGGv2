@@ -40,6 +40,9 @@ class MaaEmulator:
     这里只保留必要的 adb 探测与启停，全程同步、无重试、日志可控。
     """
 
+    # wait_online() 的默认超时（秒）。不要改这个值。
+    WAIT_ONLINE_TIMEOUT = 180
+
     @staticmethod
     def adb_client():
         host = '127.0.0.1'
@@ -128,6 +131,21 @@ class MaaEmulator:
 
         return None
 
+    def list_instances(self):
+        """
+        已安装的模拟器实例，用于「找不到 serial 对应的实例」时给出可用列表。
+
+        Returns:
+            list[tuple]: (实例名, serial)
+        """
+        try:
+            from module.device.platform.emulator_windows import EmulatorManager
+            instances = EmulatorManager().all_emulator_instances
+        except Exception as e:
+            logger.info(e)
+            return []
+        return [(instance.name, instance.serial) for instance in instances]
+
     def start(self, instance):
         """
         启动模拟器（只发启动命令，不等待）。调用前必须先用 alive()/find() 确认它真的不在。
@@ -194,7 +212,7 @@ class MaaEmulator:
         """
         return MaaEmulator.adb_client().shell(serial, command, timeout=timeout)
 
-    def wait_online(self, instance, timeout=180):
+    def wait_online(self, instance, timeout=WAIT_ONLINE_TIMEOUT):
         """
         等待模拟器真的可用：adb 上线且系统启动完成。
 
