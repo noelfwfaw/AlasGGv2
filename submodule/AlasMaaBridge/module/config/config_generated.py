@@ -25,7 +25,7 @@ class GeneratedConfig:
     Error_OnePushConfig = 'provider: null'
 
     # Group `Optimization`
-    Optimization_WhenTaskQueueEmpty = 'stay_there'  # stay_there, close_game
+    Optimization_WhenTaskQueueEmpty = 'stay_there'  # stay_there, close_game, close_emulator
 
     # Group `MaaEmulator`
     MaaEmulator_Serial = '127.0.0.1:5555'

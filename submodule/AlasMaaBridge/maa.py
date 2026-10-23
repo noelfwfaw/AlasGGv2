@@ -29,11 +29,13 @@ if os.name == 'nt':
 from alas import AzurLaneAutoScript
 from module.base.decorator import del_cached_property
 from module.config.config import AzurLaneConfig
+from module.device.env import IS_WINDOWS
 from module.exception import RequestHumanTakeover
 from module.logger import logger
 from submodule.AlasMaaBridge.module.asst.updater import Updater as MaaUpdater
 from submodule.AlasMaaBridge.module.asst.utils import Version
 from submodule.AlasMaaBridge.module.config.config import ArknightsConfig
+from submodule.AlasMaaBridge.module.device.emulator import MaaEmulator
 from submodule.AlasMaaBridge.module.handler.handler import AssistantHandler
 from submodule.AlasMaaBridge.module.logger import log_callback
 
@@ -47,10 +49,130 @@ class FakeDevice:
         return FakeDevice.empty_func
 
 
+class MaaDevice(FakeDevice):
+    """
+    MAA 插件专用的设备层。
+
+    其余方法（app_stop、release_during_wait、stuck_record_clear 等）仍走 FakeDevice 的空实现，
+    这里只额外提供模拟器的存活检查与启停，供调度器复用 ALAS 主模块的调度循环。
+    """
+
+    def __init__(self, script=None):
+        self.script = script
+        self.config = None
+        self.emulator_restarted = False
+
+    @property
+    def _config(self):
+        if self.config is not None:
+            return self.config
+        if self.script is not None:
+            return self.script.config
+        return None
+
+    def device_alive(self):
+        """
+        模拟器是否在线。非 Windows 平台无模拟器概念，直接视为在线。
+        """
+        config = self._config
+        if not IS_WINDOWS or config is None:
+            return True
+        return MaaEmulator().alive(config.MaaEmulator_Serial)
+
+    def emulator_check(self):
+        """
+        运行期设备检查：模拟器不在时拉起它，并重连 MaaCore。
+
+        拉起成功后设置 emulator_restarted，由 get_next_task() 决定是否补一次开始唤醒。
+
+        Returns:
+            bool: False 表示无法恢复，调用方应 RequestHumanTakeover
+        """
+        self.emulator_restarted = False
+        if not IS_WINDOWS:
+            return True
+
+        config = self._config
+        if config is None:
+            return True
+
+        emulator = MaaEmulator()
+        serial = config.MaaEmulator_Serial
+        try:
+            if emulator.alive(serial):
+                return True
+
+            logger.critical(f'未检测到模拟器 {serial}，正在尝试启动')
+            instance = emulator.find(serial)
+            if instance is None:
+                logger.critical(
+                    f'未找到 serial 为 "{serial}" 的模拟器实例，'
+                    f'请检查 MAA 设置中的模拟器 serial'
+                )
+                return False
+
+            if instance.serial != serial:
+                logger.warning(f'模拟器 serial 已变化：{serial} -> {instance.serial}')
+                config.MaaEmulator_Serial = instance.serial
+                serial = instance.serial
+
+            if not emulator.start(instance):
+                logger.critical('模拟器启动命令发送失败')
+                return False
+
+            serial = emulator.wait_online(instance)
+            if not serial:
+                logger.critical('模拟器启动超时，adb 未上线')
+                return False
+
+            if serial != config.MaaEmulator_Serial:
+                logger.warning(f'模拟器 serial 已变化：{config.MaaEmulator_Serial} -> {serial}')
+                config.MaaEmulator_Serial = serial
+
+            self.maa_reconnect()
+            self.emulator_restarted = True
+            logger.info(f'模拟器已启动：{serial}')
+            return True
+        except RequestHumanTakeover:
+            # 连接 MaaCore 失败属于需要人工介入的判断，交给上层直接退出
+            raise
+        except Exception as e:
+            logger.exception(e)
+            logger.critical('启动模拟器失败')
+            return False
+
+    def emulator_stop_and_wait(self, timeout=30):
+        """
+        关闭模拟器并等待它从 adb 设备列表消失。
+
+        MuMu12 的 shutdown_player 是异步的，不等它关完就进入等待期的话，
+        下个任务拉起模拟器时会与仍在销毁的实例撞车。
+
+        Returns:
+            bool: 模拟器是否已关闭
+        """
+        config = self._config
+        if not IS_WINDOWS or config is None:
+            return False
+
+        emulator = MaaEmulator()
+        serial = config.MaaEmulator_Serial
+        instance = emulator.find(serial)
+        if instance is None:
+            logger.warning(f'未找到 serial 为 "{serial}" 的模拟器实例，无法关闭模拟器')
+            return False
+
+        if not emulator.stop(instance):
+            logger.warning('模拟器关闭命令发送失败')
+            return False
+
+        return emulator.wait_offline(serial, timeout=timeout)
+
+
 class ArknightsAutoScript(AzurLaneAutoScript):
     @cached_property
     def device(self):
-        return FakeDevice()
+        return MaaDevice(self)
 
     @cached_property
     def config(self):
@@ -269,13 +391,54 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             return False
         return True
 
+    def maa_reconnect(self):
+        """
+        模拟器重启后用新的 serial 重连 MaaCore。
+
+        未加载过 MaaCore 时直接返回，交给首次任务里的 load_asst 处理。
+        """
+        asst = self.__dict__.get('asst')
+        if asst is None:
+            return
+        handler = AssistantHandler(config=self.config, asst=asst)
+        handler.connect()
+
+    def maa_stop_during_wait(self):
+        """
+        等待期内先关游戏再关模拟器，对应「完成所有任务后：关闭模拟器」。
+
+        Returns:
+            bool: True 表示模拟器已被关闭
+        """
+        try:
+            handler = AssistantHandler(config=self.config, asst=self.maa_asst())
+            handler.connect()
+            handler.maa_start('CloseDown', {
+                'client_type': self.config.MaaEmulator_PackageName,
+            })
+        except Exception as e:
+            logger.exception(e)
+            logger.warning('关闭游戏失败，将继续关闭模拟器')
+
+        # 模拟器已经不在时不要再发关闭命令，否则会作用到不存在的实例上
+        if not self.device.device_alive():
+            logger.warning('模拟器当前已不在线，跳过关闭')
+            return True
+
+        stopped = self.device.emulator_stop_and_wait()
+        if not stopped:
+            # 关闭失败只降级为「关闭游戏」语义，不要中断等待流程
+            logger.warning('关闭模拟器失败，将按关闭游戏处理')
+        return stopped
+
     def get_next_task(self):
         """
         重写任务调度，支持「完成所有任务后」的收尾行为。
 
         ALAS 主模块的等待逻辑依赖 device.app_stop() 与 Restart 任务，
-        MAA 插件既没有自己的 device 也没有 Restart 任务，
-        所以等待期间由这里直接调用 MAA 的 CloseDown 关闭游戏，
+        MAA 插件既没有自己的 device 也没有 Restart 任务，所以：
+        - 关闭游戏：等待期间由这里直接调用 MAA 的 CloseDown；
+        - 关闭模拟器：CloseDown 之后再关闭模拟器，下个任务开始前重新拉起。
         下个任务开始前再补一次「开始唤醒」把游戏拉起来。
         """
         while 1:
@@ -286,17 +449,37 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             if task.next_run > datetime.now():
                 logger.info(f'Wait until {task.next_run} for task `{task.command}`')
                 self.is_first_task = False
-                closed = self.maa_close_game_during_wait()
-                if closed:
+                method = self.config.Optimization_WhenTaskQueueEmpty
+                needs_startup = False
+                if method == 'close_emulator':
+                    self.maa_stop_during_wait()
+                    needs_startup = True
+                else:
+                    needs_startup = self.maa_close_game_during_wait()
+                if needs_startup:
                     # 先排一次开始唤醒，等待期间配置被改动也不会带着关掉的游戏去跑任务
                     self.config.task_call('MaaStartup')
                 self.device.release_during_wait()
                 if not self.wait_until(task.next_run):
                     del_cached_property(self, 'config')
                     continue
-                if closed:
+                if needs_startup:
                     del_cached_property(self, 'config')
                     continue
+
+            # 任务到点，先确认模拟器在线；掉线时在这里拉起，避免带着死掉的模拟器进任务
+            device = self.device
+            device.config = self.config
+            if not device.emulator_check():
+                logger.critical('Request human takeover')
+                raise RequestHumanTakeover
+            if device.emulator_restarted and task.command != 'MaaStartup':
+                # 模拟器刚启动，游戏还没起来，先补一次开始唤醒
+                logger.info('模拟器刚启动，先补一次开始唤醒')
+                self.config.task_call('MaaStartup')
+                del_cached_property(self, 'config')
+                continue
+
             break
 
         AzurLaneConfig.is_hoarding_task = False
