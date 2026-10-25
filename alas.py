@@ -139,12 +139,14 @@ class AzurLaneAutoScript:
         """
         发送错误推送，远程访问已连接时附带远程控制链接。
 
-        链接来自 module.webui.remote_access 的 ssh 隧道（RemoteAccess.get_entry_point），
-        未启动或未连接时返回 None，此时 content 保持原样，不会推送 "None"。
+        链接来自 module.webui.remote_access 的 ssh 隧道。实例子进程由 GUI 进程
+        multiprocessing 派生，拿不到 GUI 进程内的隧道地址，因此用
+        get_entry_point_shared()（本进程隧道优先，否则读 GUI 写入的共享文件
+        ./log/remote_access.url）；两者都拿不到时 content 保持原样，不会推送 "None"。
         """
         try:
             from module.webui.remote_access import RemoteAccess
-            entry = RemoteAccess.get_entry_point()
+            entry = RemoteAccess.get_entry_point_shared()
         except Exception:
             entry = None
         if entry:

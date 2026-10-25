@@ -10,6 +10,7 @@ The stdout of ssh process is the connection info.
 """
 
 import json
+import os
 import shlex
 import threading
 import time
@@ -23,6 +24,12 @@ _ssh_process: Popen = None
 _ssh_thread: threading.Thread = None
 _ssh_notfound: bool = False
 address: str = None
+
+# 远程控制链接的跨进程共享文件
+# Alas 实例子进程由 GUI 进程 multiprocessing 派生，拿不到 GUI 进程内的 address 全局变量，
+# 因此 GUI 连上隧道后把链接写入 ./log/remote_access.url，子进程从该文件读取
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ADDRESS_FILE = os.path.join(_ROOT, 'log', 'remote_access.url')
 
 # 保活线程（独立于 WebUI 的 TaskHandler 单线程队列）
 _keep_alive_thread: threading.Thread = None
@@ -114,6 +121,7 @@ def remote_access_service(
             global address
             address = connection_info["address"]
             logger.debug(f"Remote access url: {address}")
+            _save_address_file(address)
 
     # wait ssh or main thread exit
     while not am_i_the_only_thread() and _ssh_process.poll() is None:
@@ -130,6 +138,23 @@ def remote_access_service(
         else:
             logger.info("PyWebIO application remote access service exit.")
     address = None
+    _save_address_file(None)
+
+
+def _save_address_file(url):
+    """
+    把远程控制链接写入共享文件，供 Alas 实例子进程读取；传入 None 时删除文件。
+    写文件失败只记 warning，不影响远程访问本身。
+    """
+    try:
+        if url:
+            os.makedirs(os.path.dirname(ADDRESS_FILE), exist_ok=True)
+            with open(ADDRESS_FILE, 'w', encoding='utf-8') as f:
+                f.write(url)
+        elif os.path.exists(ADDRESS_FILE):
+            os.remove(ADDRESS_FILE)
+    except OSError as e:
+        logger.warning(f"Failed to update remote access url file: {e}")
 
 
 def start_remote_access_service_(**kwargs):
@@ -304,3 +329,25 @@ class RemoteAccess:
     @staticmethod
     def get_entry_point():
         return address if RemoteAccess.is_alive() else None
+
+    @staticmethod
+    def get_entry_point_shared():
+        """
+        跨进程获取远程控制链接。
+
+        Alas 实例子进程由 GUI 进程 multiprocessing 派生，远程隧道只在 GUI 进程内，
+        子进程里 get_entry_point() 恒为 None。优先用本进程的隧道地址，
+        否则读取 GUI 进程写入的共享文件（./log/remote_access.url）。
+        """
+        entry = RemoteAccess.get_entry_point()
+        if entry:
+            return entry
+        try:
+            if os.path.exists(ADDRESS_FILE):
+                with open(ADDRESS_FILE, encoding='utf-8') as f:
+                    url = f.read().strip()
+                if url:
+                    return url
+        except OSError:
+            pass
+        return None
