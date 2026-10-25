@@ -836,7 +836,15 @@ class AlasGUI(Frame):
         def box_total(box):
             return sum(skin.get("amount", 0) for skin in box.get("skins", []))
 
-        for box in latest.get("boxes", []):
+        # 每个箱固定 18 个外观装备槽位；读到的槽位少于此数说明某一行没采到，
+        # 该箱的「拥有总数」会偏小，需要在标题上标出来
+        latest_boxes = latest.get("boxes", [])
+        expected_per_box = 18
+        if latest_boxes and latest.get("expected_slot_count"):
+            expected_per_box = max(
+                latest["expected_slot_count"] // len(latest_boxes), 1)
+
+        for box in latest_boxes:
             box_name = box.get("box", "")
             rows = []
             for skin in box.get("skins", []):
@@ -850,9 +858,16 @@ class AlasGUI(Frame):
                     color = "#4caf50" if delta > 0 else "#ef5350"
                     change = f'<span style="color: {color};">{delta:+d}</span>'
                 rows.append([name, str(amount), put_html(change)])
+            header_text = (f'{box_name} ({t("Gui.Statistics.GearSkinTotal")}: '
+                           f'{box_total(box)})')
+            slot_count = box.get("slot_count")
+            if slot_count:
+                header_text += f' - {slot_count}/{expected_per_box}'
+                if not box.get("complete", True):
+                    header_text += f' {t("Gui.Statistics.GearSkinIncomplete")}'
             put_table(
                 rows,
-                header=[f'{box_name} ({t("Gui.Statistics.GearSkinTotal")}: {box_total(box)})',
+                header=[header_text,
                         t("Gui.Statistics.GearSkinAmount"),
                         t("Gui.Statistics.GearSkinChange")],
             ).style("margin: .3rem 0 .3rem 0; width: 100%;")

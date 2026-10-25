@@ -3428,6 +3428,7 @@
       "GearSkinChange": "Since Last",
       "GearSkinKinds": "Kinds Owned",
       "GearSkinTotal": "Total Owned",
+      "GearSkinIncomplete": "(incomplete)",
       "GearSkinHistory": "Statistics History"
     },
     "AddAlas": {

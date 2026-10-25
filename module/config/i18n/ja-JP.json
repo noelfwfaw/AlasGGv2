@@ -3428,6 +3428,7 @@
       "GearSkinChange": "前回比",
       "GearSkinKinds": "獲得種類",
       "GearSkinTotal": "所持総数",
+      "GearSkinIncomplete": "(不完全)",
       "GearSkinHistory": "統計履歴"
     },
     "AddAlas": {

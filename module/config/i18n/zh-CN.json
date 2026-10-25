@@ -3431,6 +3431,7 @@
       "GearSkinChange": "较上次",
       "GearSkinKinds": "已获得种类",
       "GearSkinTotal": "拥有总数",
+      "GearSkinIncomplete": "(不完整)",
       "GearSkinHistory": "统计历史"
     },
     "AddAlas": {
