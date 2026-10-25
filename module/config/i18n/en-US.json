@@ -3428,6 +3428,12 @@
       "GearSkinChange": "Since Last",
       "GearSkinKinds": "Kinds Owned",
       "GearSkinTotal": "Total Owned",
+      "GearSkinBullet": "Bullet",
+      "GearSkinTorpedo": "Torpedo",
+      "GearSkinShell": "Shell",
+      "GearSkinPlaneTorpedo": "Plane (Torpedo)",
+      "GearSkinPlaneFighter": "Plane (Fighter)",
+      "GearSkinPlaneBomber": "Plane (Bomber)",
       "GearSkinIncomplete": "(incomplete)",
       "GearSkinHistory": "Statistics History"
     },

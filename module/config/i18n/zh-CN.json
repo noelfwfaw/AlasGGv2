@@ -3431,6 +3431,12 @@
       "GearSkinChange": "较上次",
       "GearSkinKinds": "已获得种类",
       "GearSkinTotal": "拥有总数",
+      "GearSkinBullet": "子弹",
+      "GearSkinTorpedo": "鱼雷",
+      "GearSkinShell": "炮弹",
+      "GearSkinPlaneTorpedo": "飞机（鱼雷）",
+      "GearSkinPlaneFighter": "飞机（战斗）",
+      "GearSkinPlaneBomber": "飞机（轰炸）",
       "GearSkinIncomplete": "(不完整)",
       "GearSkinHistory": "统计历史"
     },

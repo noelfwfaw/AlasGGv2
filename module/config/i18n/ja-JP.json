@@ -3428,6 +3428,12 @@
       "GearSkinChange": "前回比",
       "GearSkinKinds": "獲得種類",
       "GearSkinTotal": "所持総数",
+      "GearSkinBullet": "弾丸",
+      "GearSkinTorpedo": "魚雷",
+      "GearSkinShell": "砲弾",
+      "GearSkinPlaneTorpedo": "航空機（魚雷）",
+      "GearSkinPlaneFighter": "航空機（戦闘）",
+      "GearSkinPlaneBomber": "航空機（爆撃）",
       "GearSkinIncomplete": "(不完全)",
       "GearSkinHistory": "統計履歴"
     },

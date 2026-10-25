@@ -3431,6 +3431,12 @@
       "GearSkinChange": "較上次",
       "GearSkinKinds": "已獲得種類",
       "GearSkinTotal": "擁有總數",
+      "GearSkinBullet": "子彈",
+      "GearSkinTorpedo": "魚雷",
+      "GearSkinShell": "砲彈",
+      "GearSkinPlaneTorpedo": "飛機（魚雷）",
+      "GearSkinPlaneFighter": "飛機（戰鬥）",
+      "GearSkinPlaneBomber": "飛機（轟炸）",
       "GearSkinIncomplete": "(不完整)",
       "GearSkinHistory": "統計歷史"
     },

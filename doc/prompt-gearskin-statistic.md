@@ -300,6 +300,20 @@ if self.config.EventGeneral_GearSkinStatistic:
 - 历史折叠块（`put_collapse`，默认收起，最近 7 条，每条一行摘要：时间 + total + kinds + 各箱 total）。
 - 无文件/无数据时整块不渲染（不要显示"暂无数据"，与 storage scan 一致）。
 - i18n 新键（四语言，`Gui.Statistics` 组）：`GearSkin`（外观装备统计）、`GearSkinLatest`（最新统计）、`GearSkinBox`（箱）、`GearSkinAmount`（拥有）、`GearSkinChange`（较上次）、`GearSkinKinds`（已获得种类）、`GearSkinTotal`（拥有总数）、`GearSkinHistory`（统计历史）。注意花括号转义规则同 R1.4。
+- **名称必须按外观装备类型着色**（`module/gear_skin/category.py`，WebUI 只做展示，不改统计口径）：
+
+  | 分类 | 判定规则 | 颜色 | 对照度 |
+  |---|---|---|---|
+  | 子弹 | 含 `子弹`；兜底 `endswith('弹')` | `#C45C00` 橙 | 4.31 |
+  | 鱼雷 | 含 `鱼雷` | `#1565C0` 蓝 | 5.75 |
+  | 炮弹 | 含 `炮弹` **或** `endswith('炮')` | `#8E44AD` 紫 | 5.87 |
+  | 飞机（鱼雷） | 先判飞机，再按后缀 `（鱼雷）` | `#00807F` 青 | 4.78 |
+  | 飞机（战斗） | 后缀 `（战斗）` | `#C2185B` 玫红 | 5.87 |
+  | 飞机（轰炸） | 后缀 `（轰炸）` | `#2E7D32` 墨绿 | 5.13 |
+
+  三条判定纪律：**飞机必须排在鱼雷/炮弹之前判**，否则 `星环魔影飞机（鱼雷）` 会先命中「鱼雷」；**「…啾炮」属于炮弹族**（实测 `祝福天使啾炮`、`霉运恶魔啾炮`，都不含「炮弹」二字），所以炮弹要按「炮」结尾判；括号全角半角都要认。认不出类型时用中性色 `#4A4A4A`，禁止猜。
+  **最强自检**：每箱恰好 `3 子弹 + 3 鱼雷 + 3 炮弹 + 3 + 3 + 3 飞机 = 18`，六类各 3 个槽位，分类错了这个分布立刻破。
+- 表格上方渲染一行图例（颜色圆点 + 类型名），i18n 键 `GearSkinBullet` / `GearSkinTorpedo` / `GearSkinShell` / `GearSkinPlaneTorpedo` / `GearSkinPlaneFighter` / `GearSkinPlaneBomber`（四语言各 6 条）。颜色对白底对比度须 ≥ 4:1（WebUI 是浅色主题）。
 
 ### R5 非活动守卫（必须，三级任一不通过即跳过）
 
@@ -334,8 +348,9 @@ if self.config.EventGeneral_GearSkinStatistic:
 3. 统计完成后 `log/storage_scan/<实例名>/gear_skin.json` 生成，且 `time` 与同目录 records.json 最新一条的 `time` **完全一致**。
 4. 数值核对（对照 1.3.6 基准）：箱1 = 18 槽位 / total=38 / kinds=16；箱2 = 18 槽位 / total=169。
 5. 工具 → 数据统计页面出现「外观装备统计」区块，表格数值与 gear_skin.json 一致；触发第二次统计后"较上次"列出现变化值。
-6. 关闭开关后 StorageScan 行为与改动前一致（不进商店）。
-7. 非活动期间（或活动无外观装备箱）运行：三级守卫任一触发，只 info/warning 跳过，仓库扫描正常完成。
+6. 名称颜色分组正确：子弹全橙、鱼雷全蓝、炮弹全紫、三组同型飞机分别为青/玫红/墨绿（同名的三格不能是同色），图例六个色点与名称颜色一一对应；切到 en-US / ja-JP / zh-TW 后图例文案正常。
+7. 关闭开关后 StorageScan 行为与改动前一致（不进商店）。
+8. 非活动期间（或活动无外观装备箱）运行：三级守卫任一触发，只 info/warning 跳过，仓库扫描正常完成。
 
 ## 6. 验收标准（静态可核对）
 

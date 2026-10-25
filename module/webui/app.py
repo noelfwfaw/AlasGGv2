@@ -1,5 +1,6 @@
 import re
 import argparse
+import html
 import json
 import os
 import queue
@@ -55,6 +56,12 @@ from module.config.utils import (
     read_file,
 )
 from module.config.utils import time_delta
+from module.gear_skin.category import (
+    SKIN_CATEGORY_I18N,
+    SKIN_CATEGORY_ORDER,
+    SKIN_COLORS,
+    skin_color,
+)
 from module.log_res.log_res import LogRes
 from module.logger import logger
 from module.ocr.rpc import start_ocr_server_process, stop_ocr_server_process
@@ -836,6 +843,21 @@ class AlasGUI(Frame):
         def box_total(box):
             return sum(skin.get("amount", 0) for skin in box.get("skins", []))
 
+        # 分类图例：子弹 / 鱼雷 / 炮弹 / 三类飞机 各一种颜色，与下面的名称列一致
+        put_html(
+            '<div style="margin: .2rem 0 .45rem 0; font-size: .82rem;">'
+            + "".join(
+                '<span style="margin-right: .95rem; white-space: nowrap;">'
+                f'<span style="display: inline-block; width: .62rem; height: .62rem;'
+                f' border-radius: 50%; background: {SKIN_COLORS[key]};'
+                ' margin-right: .28rem; vertical-align: middle;"></span>'
+                f'{html.escape(t("Gui.Statistics." + SKIN_CATEGORY_I18N[key]))}'
+                "</span>"
+                for key in SKIN_CATEGORY_ORDER
+            )
+            + "</div>"
+        )
+
         # 每个箱固定 18 个外观装备槽位；读到的槽位少于此数说明某一行没采到，
         # 该箱的「拥有总数」会偏小，需要在标题上标出来
         latest_boxes = latest.get("boxes", [])
@@ -857,7 +879,14 @@ class AlasGUI(Frame):
                     delta = amount - old
                     color = "#4caf50" if delta > 0 else "#ef5350"
                     change = f'<span style="color: {color};">{delta:+d}</span>'
-                rows.append([name, str(amount), put_html(change)])
+                # 名称按外观装备类型着色（子弹/鱼雷/炮弹/三类飞机），见
+                # module/gear_skin/category.py
+                rows.append([
+                    put_html(f'<span style="color: {skin_color(name)};'
+                             f' font-weight: 600;">{html.escape(name)}</span>'),
+                    str(amount),
+                    put_html(change),
+                ])
             header_text = (f'{box_name} ({t("Gui.Statistics.GearSkinTotal")}: '
                            f'{box_total(box)})')
             slot_count = box.get("slot_count")
