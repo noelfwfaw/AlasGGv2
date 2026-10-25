@@ -1,12 +1,18 @@
 """
 魔改客户端的启动辅助。
 
-部分魔改客户端（如带「灵动岛」悬浮窗的版本）在进入游戏后会弹出一层悬浮面板：
-灵动岛 →（免责声明 / 辅助密码）→ 辅助设置面板 → 隐藏灵动岛。
-这套面板会挡住 MAA 的识别区域，所以在「开始唤醒」之后先把它关掉。
+部分魔改客户端（如带「灵动岛」悬浮窗的版本）在进入游戏后会弹出一层辅助面板：
+声明页 →（辅助密码）→ 功能面板。这套面板会挡住 MAA 的识别区域，所以在
+「开始唤醒」之后先把它关掉。
+
+用户已开启客户端的「彻底隐藏灵动岛(自动开音量键菜单)」：灵动岛完全消失、
+不留热区（误触遮挡从根源消除），因此改为用音量键开关面板：
+音量+ 打开 → 同意条款 → 进入辅助 → 音量- 关闭。
+不再点击灵动岛，也不再进设置页点「隐藏灵动岛」——那既点不到（没有热区），
+还会把用户刚改好的「彻底隐藏」设置改回去。
 
 实现上不依赖主模块的 Device（MAA 插件的设备层是 FakeDevice），
-直接用 adbutils 的 `screencap` + `input tap/swipe` 完成截图与点击。
+直接用 adbutils 的 `screencap` + `input tap/swipe/keyevent` 完成截图与操作。
 """
 import os
 import random
@@ -23,32 +29,26 @@ ASSETS = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'assets', 'assist'
 )
 
+# 音量键（KEYCODE_VOLUME_UP / KEYCODE_VOLUME_DOWN）。魔改包的
+# 「彻底隐藏灵动岛(自动开音量键菜单)」用它们开关辅助面板。
+KEY_VOLUME_UP = 24
+KEY_VOLUME_DOWN = 25
+
 # 模板文件名 -> 截图中的出现区域 (x1, y1, x2, y2)，分辨率 1280x720
 TEMPLATES = {
-    'assist_sun': (584, 16, 618, 52),
     'assist_agree': (428, 565, 700, 627),
     'assist_enter': (435, 238, 575, 300),
-    'assist_gear': (839, 26, 884, 66),
-    'assist_hide': (425, 427, 700, 479),
     'assist_panel': (430, 163, 620, 196),
 }
-
-# 点击点可独立于模板区。太阳图标本身是「昼夜切换」，点它会切到夜晚模式并让模板失配；
-# 灵动岛的本体是那条白色圆角条 (572, 14, 706, 52)，太阳图标只占左边的 (584, 16, 618, 52)。
-CLICK_POINTS = {
-    'assist_sun': (639, 33),
-    # 「隐藏灵动岛」那一行的实际位置比模板区偏下（模板区落在分区标题上，点了没反应）
-    'assist_hide': (640, 530),
-    # 功能面板（属性修改页）右上角的齿轮，点它才进「设置 → 隐藏灵动岛」
-    'assist_gear': (826, 91),
-}
-
-# 点灵动岛没打开面板时的备用点：仍在白色圆角条上，避开太阳图标与右侧图标
-ISLAND_POINTS = [(639, 33), (660, 33)]
 
 # 点击前后画面差异的均值阈值。连续两次截图（不点击）实测噪声约 0.03，
 # 点开面板约 34，这里取 3 足够区分「这一下没生效」与「开了」。
 CHANGE_THRESHOLD = 3.0
+
+# 按键后先等系统音量条自动收起再截图。音量条本身就是一次全屏可见的变化，
+# 不先等它消失，changed() 会把「音量条弹出」误判成「面板已打开」，
+# 而且音量条压在模板区上会让分数偏低。
+VOLUME_UI_WAIT = 3.0
 
 
 def imread_gray(path):
@@ -101,17 +101,18 @@ def _decode_screencap(data):
 
 class MaaAssist:
     """
-    关闭魔改客户端的启动悬浮面板。
+    用音量键开关魔改客户端的启动辅助面板，并走完「同意条款 → 进入辅助」。
     """
 
     THRESHOLD = 0.85
-    # 齿轮在主界面/声明页也有 0.79~0.86 的分数，必须和「面板标题」一起判
-    THRESHOLD_GEAR = 0.90
     MAX_SWIPE = 4
     MAX_LOOPS = 40
     TIMEOUT = 150
     # 声明页一次滚到底部的滑动，参数来自实际截图
     SCROLL = (640, 600, 640, 300, 600)
+    # 没有按钮时先空转一帧：点击后的转场中间帧同样没有按钮，
+    # 直接当「声明页顶部」去滑动会把刚打开的页面滑走
+    IDLE_BEFORE_SWIPE = 2
 
     def __init__(self, config):
         self.config = config
@@ -122,7 +123,7 @@ class MaaAssist:
     def run(self):
         """
         Returns:
-            bool: True 表示已确认隐藏（或本就无需处理）
+            bool: True 表示已确认辅助面板关闭（或本就无需处理）
         """
         if not self.config.MaaAssist_Enable:
             logger.info('辅助启动: disabled')
@@ -140,102 +141,132 @@ class MaaAssist:
         if missing:
             # 一次报全：逐个 return 会让用户补一个跑一次
             logger.warning(f'辅助启动: 缺少模板 {len(missing)} 个：' + '、'.join(missing))
-            logger.warning(f'请确认 {ASSETS} 下有 6 个 png，且路径不含无法读取的字符')
+            logger.warning(
+                f'请确认 {ASSETS} 下有 {len(TEMPLATES)} 个 png，且路径不含无法读取的字符'
+            )
             return False
 
         try:
             return self._run()
         except Exception as e:
             logger.warning(f'辅助启动: failed {e}')
+            # 异常退出同样要把面板关掉（音量-），避免面板留着遮挡 MAA
+            try:
+                self.ensure_closed()
+            except Exception as e2:
+                logger.warning(f'辅助启动: 收尾关闭面板失败 {e2}')
             return False
 
     def _run(self):
         timer = Timer(self.TIMEOUT).start()
-        opened = False
-        clicked_hide = False
         swipe_times = 0
+        idle = 0
+
+        # 打开：先判断面板是不是已经开着。若魔改包实现成 toggle（面板开着时
+        # 按音量+会关闭），直接发音量+ 会适得其反，已开就跳过这一步。
+        image = self.screenshot()
+        score = self.scores(image)
+        self.log_scores(score)
+        if self.panel_open(score):
+            logger.info('辅助启动: 面板已打开，跳过音量+')
+        else:
+            after = self.press_volume(KEY_VOLUME_UP)
+            score = self.scores(after)
+            self.log_scores(score)
+            # 声明页顶部只有正文（同意按钮在页底），模板一个都匹配不上，
+            # 所以「按钮出现」或「画面变了」都算打开成功
+            if not (self.panel_visible(score) or self.changed(image, after)):
+                logger.warning('辅助启动: failed（音量+后未检测到辅助面板）')
+                self.save_failure(after)
+                # 音量+ 可能已经生效、只是本帧判据没认出来，收尾时再确认一次
+                self.ensure_closed()
+                return False
 
         for _ in range(self.MAX_LOOPS):
             if timer.reached():
                 logger.warning(f'辅助启动: skipped（处理超时 {self.TIMEOUT}s）')
+                self.ensure_closed()
                 return False
 
             image = self.screenshot()
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            score = {name: self.match(gray, name) for name in self.templates}
+            score = self.scores(image)
             self.log_scores(score)
 
-            # 没有按钮 = 灵动岛已经隐藏，这是唯一的完成判据
-            busy = max(
-                score['assist_agree'], score['assist_enter'],
-                score['assist_panel'], score['assist_hide'],
-            )
-            if clicked_hide and busy < self.THRESHOLD:
-                logger.info('HIDE_ISLAND 灵动岛已隐藏，辅助设置完成')
-                return True
-
-            if score['assist_hide'] >= self.THRESHOLD:
-                self.click('assist_hide')
-                clicked_hide = True
-                continue
             if score['assist_agree'] >= self.THRESHOLD:
                 logger.info(f'AGREE score={score["assist_agree"]:.3f}')
                 self.click('assist_agree')
-                # 换页了，滑动额度重新给这一段用（R4）
+                # 换页了，滑动额度重新给这一段用
                 swipe_times = 0
+                idle = 0
                 continue
             if score['assist_enter'] >= self.THRESHOLD:
                 logger.info(f'ENTER_ASSIST score={score["assist_enter"]:.3f}')
                 self.click('assist_enter')
-                # 换页了，滑动额度重新给这一段用（R4）
-                swipe_times = 0
-                continue
-            # 齿轮模板在真机只有 0.65（素材自测 0.93），双门控永远不过；
-            # 实测本页 assist_panel=0.917，改为「属性修改页 + 已在辅助流程内」判定，
-            # 点击点用 CLICK_POINTS（齿轮模板仅保留在 panel_visible 里）。
-            if score['assist_panel'] >= self.THRESHOLD and opened:
-                logger.info(f'OPEN_SETTINGS score={score["assist_panel"]:.3f}')
-                self.click('assist_gear')
-                continue
-            if score['assist_sun'] >= self.THRESHOLD:
-                if opened:
-                    if swipe_times >= self.MAX_SWIPE:
-                        logger.warning('辅助启动: failed（声明页滑动 4 次仍未找到按钮）')
-                        self.save_failure(image)
-                        return False
-                    swipe_times += 1
-                    logger.info(f'声明页向下滚动 {swipe_times}/{self.MAX_SWIPE}')
-                    self.swipe(*self.SCROLL)
-                    continue
+                # 已进入辅助，用音量-关闭面板
+                return self.close_panel()
+            if score['assist_panel'] >= self.THRESHOLD:
+                # 客户端已记住声明/密码时，音量+ 可能直接进到功能面板
+                logger.info(f'ALREADY_IN_ASSIST score={score["assist_panel"]:.3f}')
+                return self.close_panel()
 
-                # 点白条而不是模板中心（模板中心是太阳图标，那是昼夜切换）
-                for index, point in enumerate(ISLAND_POINTS):
-                    logger.info(
-                        f'OPEN_ISLAND score={score["assist_sun"]:.3f} tap={point[0]},{point[1]}'
-                    )
-                    after = self.tap(*point)
-                    # 声明页顶部只有正文（同意按钮在页底），模板一个都匹配不上；
-                    # 灵动岛又是悬浮层，面板打开后 assist_sun 照样匹配。
-                    # 所以「模板命中」或「画面变了」都算打开成功。
-                    if (self.panel_visible(self.scores(after))
-                            or self.changed(image, after)):
-                        opened = True
-                        break
-                    logger.info(
-                        f'灵动岛未打开，换点重试（{index + 1}/{len(ISLAND_POINTS)}）'
-                    )
-                else:
-                    logger.warning('辅助启动: failed（点击灵动岛后仍未打开面板）')
-                    self.save_failure(image)
-                    return False
+            # 一个按钮都没有：声明页顶部（正文在上、同意按钮在页底）或转场中。
+            # 转场帧不能当声明页滑，先空转一帧等稳定
+            idle += 1
+            if idle < self.IDLE_BEFORE_SWIPE:
                 continue
-
-            logger.info('辅助启动: skipped（未检测到灵动岛）')
-            self.save_failure(image)
-            return False
+            if swipe_times >= self.MAX_SWIPE:
+                logger.warning('辅助启动: failed（声明页滑动 4 次仍未找到按钮）')
+                self.save_failure(image)
+                self.ensure_closed()
+                return False
+            swipe_times += 1
+            logger.info(f'声明页向下滚动 {swipe_times}/{self.MAX_SWIPE}')
+            self.swipe(*self.SCROLL)
 
         logger.warning(f'辅助启动: failed（超过 {self.MAX_LOOPS} 轮）')
+        self.ensure_closed()
         return False
+
+    def close_panel(self):
+        """
+        进入辅助后用音量-关闭面板。
+
+        完成判据：按键后重新截图，agree / enter 均不命中（声明页与功能面板
+        的按钮全部消失）。一次没关掉时补发一次音量-。
+
+        Returns:
+            bool: True 表示已确认面板关闭
+        """
+        after = self.press_volume(KEY_VOLUME_DOWN)
+        score = self.scores(after)
+        self.log_scores(score)
+        if not self.panel_visible(score):
+            logger.info('辅助启动: 已完成（音量关闭辅助面板）')
+            return True
+
+        logger.info('辅助启动: 面板仍在，补发一次音量-')
+        after = self.press_volume(KEY_VOLUME_DOWN)
+        score = self.scores(after)
+        self.log_scores(score)
+        if not self.panel_visible(score):
+            logger.info('辅助启动: 已完成（音量关闭辅助面板）')
+            return True
+
+        logger.warning('辅助启动: failed（音量-后面板仍未关闭）')
+        self.save_failure(after)
+        return False
+
+    def ensure_closed(self):
+        """
+        失败/超时分支返回前确认面板已关闭，必要时补发音量-。
+        """
+        if not self.templates:
+            return
+        score = self.scores()
+        if not self.panel_open(score):
+            return
+        logger.info('辅助启动: 失败收尾，补发音量- 关闭面板')
+        self.press_volume(KEY_VOLUME_DOWN)
 
     def screenshot(self):
         """
@@ -304,13 +335,12 @@ class MaaAssist:
 
     def log_scores(self, score):
         """
-        每轮把 6 个模板分数都打出来，失败时才能判断是阈值问题还是页面变了。
+        每轮把模板分数都打出来，失败时才能判断是阈值问题还是页面变了。
         """
         logger.info(
-            'scores: sun={:.2f} agree={:.2f} enter={:.2f} gear={:.2f} panel={:.2f} hide={:.2f}'
+            'scores: agree={:.2f} enter={:.2f} panel={:.2f}'
             .format(
-                score['assist_sun'], score['assist_agree'], score['assist_enter'],
-                score['assist_gear'], score['assist_panel'], score['assist_hide'],
+                score['assist_agree'], score['assist_enter'], score['assist_panel'],
             )
         )
 
@@ -336,7 +366,7 @@ class MaaAssist:
 
     def panel_visible(self, score):
         """
-        面板 / 声明 / 密码 / 设置任一按钮出现。
+        声明页 / 功能面板上的按钮是否出现（只看 agree / enter）。
 
         注意声明页顶部（只有正文时）一个按钮都匹配不上，此时用 changed() 判断。
 
@@ -346,18 +376,39 @@ class MaaAssist:
         return (
             score['assist_agree'] >= self.THRESHOLD
             or score['assist_enter'] >= self.THRESHOLD
-            or score['assist_hide'] >= self.THRESHOLD
-            or (score['assist_panel'] >= self.THRESHOLD
-                and score['assist_gear'] >= self.THRESHOLD_GEAR)
         )
 
+    def panel_open(self, score):
+        """
+        面板是否已经开着：agree / enter / panel 任一命中。
+
+        用于流程开始时判断要不要发音量+（toggle 实现下会反而关闭面板）。
+
+        Returns:
+            bool:
+        """
+        return self.panel_visible(score) or score['assist_panel'] >= self.THRESHOLD
+
     def click(self, name):
-        if name in CLICK_POINTS:
-            return self.tap(*CLICK_POINTS[name])
         x1, y1, x2, y2 = TEMPLATES[name]
         x = random.randint(x1 + 4, x2 - 4)
         y = random.randint(y1 + 4, y2 - 4)
         return self.tap(x, y)
+
+    def press_volume(self, keycode):
+        """
+        发送一次音量键（走与 tap/swipe 相同的 MaaEmulator.shell 通道）。
+
+        Args:
+            keycode (int): KEY_VOLUME_UP / KEY_VOLUME_DOWN
+
+        Returns:
+            np.ndarray: 按键后稳定下来的画面
+        """
+        self.emulator.shell(self.serial, f'input keyevent {keycode}')
+        # 等系统音量条收起，否则返回的画面里带着音量条，会干扰判据
+        time.sleep(VOLUME_UI_WAIT)
+        return self.wait_stable()
 
     def tap(self, x, y):
         """
