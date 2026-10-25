@@ -20,6 +20,14 @@ config/reloadalas
 test.py
 test/
 
+### fork: 本地工具与调试产物，禁止入库
+# 编码助手工作区（含本机路径、实例名与临时调试脚本）
+.workbuddy/
+# 开发期调试截图与探测脚本（体积大、无运行时用途）
+doc/gearskin-shots/
+doc/storage-shots/
+doc/assist-shots/
+
 # Created by .ignore support plugin (hsz.mobi)
 
 ### JetBrains template
