@@ -115,11 +115,7 @@ class AzurLaneAutoScript:
                     return False
                 logger.critical('Game page unknown')
                 self.save_error_log()
-                handle_notify(
-                    self.config.Error_OnePushConfig,
-                    title=f"Alas <{self.config_name}> crashed",
-                    content=f"<{self.config_name}> GamePageUnknownError",
-                )
+                self._error_notify(f"<{self.config_name}> GamePageUnknownError")
                 exit(1)
             else:
                 self.checker.wait_until_available()
@@ -127,29 +123,37 @@ class AzurLaneAutoScript:
         except ScriptError as e:
             logger.exception(e)
             logger.critical('This is likely to be a mistake of developers, but sometimes just random issues')
-            handle_notify(
-                self.config.Error_OnePushConfig,
-                title=f"Alas <{self.config_name}> crashed",
-                content=f"<{self.config_name}> ScriptError",
-            )
+            self._error_notify(f"<{self.config_name}> ScriptError")
             exit(1)
         except RequestHumanTakeover:
             logger.critical('Request human takeover')
-            handle_notify(
-                self.config.Error_OnePushConfig,
-                title=f"Alas <{self.config_name}> crashed",
-                content=f"<{self.config_name}> RequestHumanTakeover",
-            )
+            self._error_notify(f"<{self.config_name}> RequestHumanTakeover")
             exit(1)
         except Exception as e:
             logger.exception(e)
             self.save_error_log()
-            handle_notify(
-                self.config.Error_OnePushConfig,
-                title=f"Alas <{self.config_name}> crashed",
-                content=f"<{self.config_name}> Exception occured",
-            )
+            self._error_notify(f"<{self.config_name}> Exception occured")
             exit(1)
+
+    def _error_notify(self, content):
+        """
+        发送错误推送，远程访问已连接时附带远程控制链接。
+
+        链接来自 module.webui.remote_access 的 ssh 隧道（RemoteAccess.get_entry_point），
+        未启动或未连接时返回 None，此时 content 保持原样，不会推送 "None"。
+        """
+        try:
+            from module.webui.remote_access import RemoteAccess
+            entry = RemoteAccess.get_entry_point()
+        except Exception:
+            entry = None
+        if entry:
+            content = f"{content}\n远程控制链接: {entry}"
+        handle_notify(
+            self.config.Error_OnePushConfig,
+            title=f"Alas <{self.config_name}> crashed",
+            content=content,
+        )
 
     def save_error_log(self):
         """
@@ -701,10 +705,9 @@ class AzurLaneAutoScript:
                 logger.critical("Possible reason #2: There is a problem with this task. "
                                 "Please contact developers or try to fix it yourself.")
                 logger.critical('Request human takeover')
-                handle_notify(
-                    self.config.Error_OnePushConfig,
-                    title=f"Alas <{self.config_name}> crashed",
-                    content=f"<{self.config_name}> RequestHumanTakeover\nTask `{task}` failed 3 or more times.",
+                self._error_notify(
+                    f"<{self.config_name}> RequestHumanTakeover\n"
+                    f"Task `{task}` failed 3 or more times."
                 )
                 exit(1)
 
