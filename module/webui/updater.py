@@ -18,6 +18,11 @@ from module.webui.utils import TaskHandler, get_next_time
 
 
 class Updater(DeployConfig, GitManager, PipManager):
+    # 「检查更新」跑在 TaskHandler 单线程里，一次卡住的网络命令会让整个后台队列停摆
+    # （远程控制保活、调度器等全都排不上）。因此每条命令、整轮检查都要有墙钟上限。
+    FETCH_TIMEOUT = 20  # 单次 git fetch 的上限
+    CHECK_UPDATE_TIMEOUT = 30  # 一轮检查（含 3 次重试）的整体上限
+
     def __init__(self, file=DEPLOY_CONFIG):
         super().__init__(file=file)
         self.state = 0
@@ -37,14 +42,25 @@ class Updater(DeployConfig, GitManager, PipManager):
         else:
             return None
 
-    def execute_output(self, command) -> str:
+    def execute_output(self, command, timeout=None) -> str:
         command = command.replace(r"\\", "/").replace("\\", "/").replace('"', '"')
-        log = subprocess.run(
-            command, capture_output=True, text=True, encoding="utf8", shell=True
-        ).stdout
+        if timeout is None:
+            timeout = self.DEFAULT_COMMAND_TIMEOUT
+        try:
+            log = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf8",
+                shell=True,
+                timeout=timeout,
+            ).stdout
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Command timeout after {timeout}s: {command}")
+            return ""
         return log
 
-    def get_commit(self, revision="", n=1, short_sha1=False) -> Tuple:
+    def get_commit(self, revision="", n=1, short_sha1=False, timeout=None) -> Tuple:
         """
         Return:
             (sha1, author, isotime, message,)
@@ -52,7 +68,8 @@ class Updater(DeployConfig, GitManager, PipManager):
         ph = "h" if short_sha1 else "H"
 
         log = self.execute_output(
-            f'"{self.git}" log {revision} --pretty=format:"%{ph}---%an---%ad---%s" --date=iso -{n}'
+            f'"{self.git}" log {revision} --pretty=format:"%{ph}---%an---%ad---%s" --date=iso -{n}',
+            timeout=timeout,
         )
 
         if not log:
@@ -68,7 +85,15 @@ class Updater(DeployConfig, GitManager, PipManager):
 
     def _check_update(self) -> bool:
         self.state = "checking"
+        try:
+            return self._check_update_impl()
+        except Exception as e:
+            # 这个函数跑在 TaskHandler 单线程里，抛异常会直接把任务从队列移除，
+            # 所以任何失败都只记 warning 并返回 False
+            logger.warning(f"Check update failed: {e}")
+            return False
 
+    def _check_update_impl(self) -> bool:
         if State.deploy_config.GitOverCdn:
             status = self.goc_client.get_status()
             if status == "uptodate":
@@ -82,17 +107,31 @@ class Updater(DeployConfig, GitManager, PipManager):
                 pass
 
         source = "origin"
+        deadline = time.time() + self.CHECK_UPDATE_TIMEOUT
+        # 用 deploy.yaml 的 Repository 校正 origin：`.git/config` 里可能还留着
+        # 不走代理的旧地址（git_install() 只在真正更新时才改），直连会把 fetch 卡死
+        self.set_git_remote(source=source, timeout=min(10, max(1.0, deadline - time.time())))
+
+        fetched = False
         for _ in range(3):
-            if self.execute(
-                f'"{self.git}" fetch {source} {self.Branch}', allow_failure=True
-            ):
+            remaining = deadline - time.time()
+            if remaining <= 0:
                 break
-        else:
+            if self.execute(
+                f'"{self.git}" fetch {source} {self.Branch}',
+                allow_failure=True,
+                timeout=min(self.FETCH_TIMEOUT, remaining),
+            ):
+                fetched = True
+                break
+        if not fetched:
             logger.warning("Git fetch failed")
             return False
 
+        remaining = max(1.0, deadline - time.time())
         log = self.execute_output(
-            f'"{self.git}" log --not --remotes={source}/* -1 --oneline'
+            f'"{self.git}" log --not --remotes={source}/* -1 --oneline',
+            timeout=remaining,
         )
         if log:
             logger.info(
@@ -100,7 +139,7 @@ class Updater(DeployConfig, GitManager, PipManager):
             )
             return False
 
-        sha1, _, _, message = self.get_commit(f"..{source}/{self.Branch}")
+        sha1, _, _, message = self.get_commit(f"..{source}/{self.Branch}", timeout=remaining)
 
         if sha1:
             logger.info(f"New update available")

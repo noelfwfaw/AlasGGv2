@@ -13,6 +13,9 @@ class ExecutionError(Exception):
 
 
 class ConfigModel:
+    # 单条外部命令的墙钟上限（秒），代码级默认值，不是 deploy.yaml 配置项。
+    DEFAULT_COMMAND_TIMEOUT: int = 600
+
     # Git
     Repository: str = "https://github.com/LmeSzinc/AzurLaneAutoScript"
     Branch: str = "master"
@@ -181,12 +184,13 @@ class DeployConfig(ConfigModel):
         else:
             return self.filepath(self.RequirementsFile)
 
-    def execute(self, command, allow_failure=False, output=True):
+    def execute(self, command, allow_failure=False, output=True, timeout=None):
         """
         Args:
             command (str):
             allow_failure (bool):
             output(bool):
+            timeout (int): Wall-clock limit in seconds, default to DEFAULT_COMMAND_TIMEOUT.
 
         Returns:
             bool: If success.
@@ -196,7 +200,9 @@ class DeployConfig(ConfigModel):
         if not output:
             command = command + ' >nul 2>nul'
         logger.info(command)
-        error_code = os.system(command)
+        if timeout is None:
+            timeout = self.DEFAULT_COMMAND_TIMEOUT
+        error_code = self.run_command(command, timeout)
         if error_code:
             if allow_failure:
                 logger.info(f"[ allowed failure ], error_code: {error_code}")
@@ -208,6 +214,45 @@ class DeployConfig(ConfigModel):
         else:
             logger.info(f"[ success ]")
             return True
+
+    @staticmethod
+    def run_command(command, timeout):
+        """
+        执行一条 shell 命令并带上墙钟上限，避免 os.system 无限挂起。
+        与 deploy/config.py 的实现保持一致。
+
+        Returns:
+            int: exit code, -1 on timeout.
+        """
+        process = subprocess.Popen(command, shell=True)
+        try:
+            return process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.warning(f"[ timeout ] command exceeded {timeout}s, terminating")
+            ConfigModel.kill_process_tree(process)
+            return -1
+
+    @staticmethod
+    def kill_process_tree(process):
+        """
+        shell=True 时直接 kill() 只杀得掉外层 cmd.exe，用 taskkill /T 连子孙一起结束。
+        """
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    f"taskkill /F /T /PID {process.pid}",
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                process.kill()
+        except Exception as e:
+            logger.info(e)
+        try:
+            process.wait(timeout=5)
+        except Exception:
+            pass
 
     def subprocess_execute(self, cmd, timeout=10):
         """

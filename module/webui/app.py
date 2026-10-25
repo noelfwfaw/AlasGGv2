@@ -2059,7 +2059,9 @@ def startup():
             State.deploy_config.EnableRemoteAccess
             and State.deploy_config.Password is not None
     ):
-        task_handler.add(RemoteAccess.keep_ssh_alive(), 60)
+        # 保活不能挂在 TaskHandler 单线程上：一次卡住的 check_update（git fetch）
+        # 就会把队列堵死，保活任务永远排不上，远程控制页长期显示「未运行」
+        RemoteAccess.start_keep_alive()
 
 
 def clearup():
@@ -2068,6 +2070,7 @@ def clearup():
     all process will NOT EXIT after close electron app.
     """
     logger.info("Start clearup")
+    RemoteAccess.stop_keep_alive()
     RemoteAccess.kill_ssh_process()
     close_discord_rpc()
     stop_ocr_server_process()

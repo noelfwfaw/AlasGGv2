@@ -14,19 +14,23 @@ import shlex
 import threading
 import time
 from subprocess import PIPE, Popen
-from typing import TYPE_CHECKING
 
 from module.logger import logger
 from module.config.utils import random_id
 from module.webui.setting import State
 
-if TYPE_CHECKING:
-    from module.webui.utils import TaskHandler
-
 _ssh_process: Popen = None
 _ssh_thread: threading.Thread = None
 _ssh_notfound: bool = False
 address: str = None
+
+# 保活线程（独立于 WebUI 的 TaskHandler 单线程队列）
+_keep_alive_thread: threading.Thread = None
+_keep_alive_stop = threading.Event()
+_ssh_error: str = None
+
+KEEP_ALIVE_INTERVAL = 60  # 已连接时的巡检间隔
+KEEP_ALIVE_RETRY = 5  # 未连接 / 启动失败后的重试间隔
 
 
 def am_i_the_only_thread() -> bool:
@@ -130,15 +134,21 @@ def remote_access_service(
 
 def start_remote_access_service_(**kwargs):
     logger.info("Start remote access service")
+    error = None
     try:
         remote_access_service(**kwargs)
     except KeyboardInterrupt:  # ignore KeyboardInterrupt
         pass
     except Exception as e:
+        error = e
         logger.exception(e)
     finally:
-        if _ssh_process:
-            logger.info("Exception occurred, killing ssh process")
+        if _ssh_process and _ssh_process.poll() is None:
+            # 只有真的异常才说 Exception，正常退出不再打印误导性的那一行
+            if error is not None:
+                logger.info("Exception occurred, killing ssh process")
+            else:
+                logger.info("Remote access service stopped, killing ssh process")
             _ssh_process.kill()
     logger.info("Exit remote access service thread")
 
@@ -149,6 +159,11 @@ class ParseError(Exception):
 
 def start_remote_access_service(**kwagrs):
     global _ssh_thread
+
+    if _ssh_thread is not None and _ssh_thread.is_alive():
+        # 已在启动中/已连接，避免保活线程与 fastapi 入口重复拉起
+        logger.info("Remote access service is already running")
+        return _ssh_thread
 
     try:
         server, server_port = State.deploy_config.SSHServer.split(":")
@@ -184,20 +199,71 @@ def start_remote_access_service(**kwagrs):
 
 class RemoteAccess:
     @staticmethod
-    def keep_ssh_alive():
-        task_handler: TaskHandler
-        task_handler = yield
-        while True:
-            if _ssh_thread is not None and _ssh_thread.is_alive():
-                yield
+    def start_keep_alive():
+        """
+        用独立的 daemon 线程保活，不再挂到 TaskHandler 的单线程队列上。
+
+        TaskHandler 是单线程串行执行，一次卡住的 check_update（git fetch）就能把
+        队列堵死，保活任务永远排不上，UI 于是长期显示「未运行」。
+        """
+        global _keep_alive_thread
+        if _keep_alive_thread is not None and _keep_alive_thread.is_alive():
+            logger.info("Remote access keep-alive thread already running")
+            return _keep_alive_thread
+        _keep_alive_stop.clear()
+        _keep_alive_thread = threading.Thread(
+            target=RemoteAccess._keep_alive_loop,
+            args=(_keep_alive_stop,),
+            daemon=True,
+            name="remote_access_keep_alive",
+        )
+        _keep_alive_thread.start()
+        return _keep_alive_thread
+
+    @staticmethod
+    def stop_keep_alive():
+        _keep_alive_stop.set()
+        if _keep_alive_thread is not None and _keep_alive_thread.is_alive():
+            _keep_alive_thread.join(timeout=2)
+
+    @staticmethod
+    def _keep_alive_loop(stop_event):
+        """
+        进程内立即尝试一次连接；失败 5 秒后重试，连上后 60 秒巡检。
+
+        存活判定统一用 `RemoteAccess.is_alive()`，与 UI 的 `get_state()` 同一套条件，
+        避免「保活认为活着 / UI 认为没运行」。
+        """
+        global _ssh_error
+        last_error = None
+        while not stop_event.is_set():
+            if RemoteAccess.is_alive():
+                last_error = None
+                stop_event.wait(KEEP_ALIVE_INTERVAL)
                 continue
             logger.info("Remote access service is not running, starting now")
             try:
                 start_remote_access_service()
+                _ssh_error = None
+                last_error = None
+                if stop_event.is_set():
+                    # clearup 正在收尾时刚拉起的进程要立刻掐掉，否则它会拖住退出
+                    if _ssh_process is not None and _ssh_process.poll() is None:
+                        _ssh_process.kill()
+                    return
             except ParseError as e:
-                logger.exception(e)
-                task_handler.remove_current_task()
-            yield
+                message = str(e)
+                _ssh_error = message
+                # 配置错误会每 5 秒重试一次，同样的内容不要刷 warning
+                if message != last_error:
+                    logger.warning(f"Remote access service config error: {message}")
+                else:
+                    logger.debug(f"Remote access service config error: {message}")
+                last_error = message
+            except Exception as e:
+                _ssh_error = str(e)
+                logger.warning(f"Remote access service failed to start: {e}")
+            stop_event.wait(KEEP_ALIVE_RETRY)
 
     @staticmethod
     def kill_ssh_process():
@@ -224,6 +290,16 @@ class RemoteAccess:
             return 3
         else:
             return 0
+
+    @staticmethod
+    def get_error():
+        """
+        最近一次启动失败的描述（目前主要是 SSHServer 解析错误）。
+
+        ParseError 不再把保活任务移出队列，而是记录在这里并保留重试；
+        配置改好后下一次重试会自动清空。
+        """
+        return _ssh_error
 
     @staticmethod
     def get_entry_point():

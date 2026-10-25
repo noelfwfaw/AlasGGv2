@@ -22,6 +22,30 @@ class GitManager(DeployConfig):
         except FileNotFoundError:
             logger.info(f'File not found: {file}')
 
+    def set_git_remote(self, source='origin', repo=None, timeout=10, allow_failure=True):
+        """
+        Point `source` at `repo`（默认取 `self.Repository`）。
+
+        抽自 `git_repository_init()` 里的 set-url/add 逻辑：`git_install()` 只在真正
+        执行更新时才校正 origin，日常的「检查更新」会一直用 `.git/config` 里遗留的
+        旧地址（例如不走代理的直连 GitHub），一卡就是几分钟。
+
+        Returns:
+            bool: If success.
+        """
+        repo = self.Repository if repo is None else repo
+        if self.execute(
+                f'"{self.git}" remote set-url {source} {repo}',
+                allow_failure=True,
+                timeout=timeout,
+        ):
+            return True
+        return self.execute(
+            f'"{self.git}" remote add {source} {repo}',
+            allow_failure=allow_failure,
+            timeout=timeout,
+        )
+
     def git_repository_init(
             self, repo, source='origin', branch='master', proxy='', ssl_verify=True
     ):
@@ -46,8 +70,12 @@ class GitManager(DeployConfig):
             self.execute(f'"{self.git}" config --local http.sslVerify false', allow_failure=True)
 
         logger.hr('Set Git Repository', 1)
-        if not self.execute(f'"{self.git}" remote set-url {source} {repo}', allow_failure=True):
-            self.execute(f'"{self.git}" remote add {source} {repo}')
+        self.set_git_remote(
+            source=source,
+            repo=repo,
+            timeout=self.DEFAULT_COMMAND_TIMEOUT,
+            allow_failure=False,
+        )
 
         logger.hr('Fetch Repository Branch', 1)
         self.execute(f'"{self.git}" fetch {source} {branch}')

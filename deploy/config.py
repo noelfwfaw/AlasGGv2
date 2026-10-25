@@ -1,4 +1,5 @@
 import copy
+import subprocess
 from typing import Optional, Union
 
 from deploy.logger import logger
@@ -10,6 +11,11 @@ class ExecutionError(Exception):
 
 
 class ConfigModel:
+    # 单条外部命令的墙钟上限（秒）。这是代码级默认值，不是 deploy.yaml 配置项，
+    # 避免给老的 deploy.yaml 新增必填字段；调用方可用 execute(timeout=...) 覆盖。
+    # 默认取 10 分钟：pip install / git pull 可能较慢，但又不允许无限挂起。
+    DEFAULT_COMMAND_TIMEOUT: int = 600
+
     # Git
     Repository: str = "https://github.com/LmeSzinc/AzurLaneAutoScript"
     Branch: str = "master"
@@ -165,12 +171,13 @@ class DeployConfig(ConfigModel):
             .replace('"', '"')
         )
 
-    def execute(self, command, allow_failure=False, output=True):
+    def execute(self, command, allow_failure=False, output=True, timeout=None):
         """
         Args:
             command (str):
             allow_failure (bool):
             output(bool):
+            timeout (int): Wall-clock limit in seconds, default to DEFAULT_COMMAND_TIMEOUT.
 
         Returns:
             bool: If success.
@@ -180,7 +187,9 @@ class DeployConfig(ConfigModel):
         if not output:
             command = command + ' >nul 2>nul'
         logger.info(command)
-        error_code = os.system(command)
+        if timeout is None:
+            timeout = self.DEFAULT_COMMAND_TIMEOUT
+        error_code = self.run_command(command, timeout)
         if error_code:
             if allow_failure:
                 logger.info(f"[ allowed failure ], error_code: {error_code}")
@@ -192,6 +201,52 @@ class DeployConfig(ConfigModel):
         else:
             logger.info(f"[ success ]")
             return True
+
+    @staticmethod
+    def run_command(command, timeout):
+        """
+        执行一条 shell 命令并带上墙钟上限。
+
+        原来是 `os.system()`，没有任何超时：一次卡住的 `git fetch` 会把调用它的
+        线程永久挂住（WebUI 的 TaskHandler 是单线程，整个后台队列都会停摆）。
+
+        Args:
+            command (str):
+            timeout (int): seconds
+
+        Returns:
+            int: exit code, -1 on timeout.
+        """
+        process = subprocess.Popen(command, shell=True)
+        try:
+            return process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.warning(f"[ timeout ] command exceeded {timeout}s, terminating")
+            ConfigModel.kill_process_tree(process)
+            return -1
+
+    @staticmethod
+    def kill_process_tree(process):
+        """
+        shell=True 时直接 kill() 只杀得掉外层 cmd.exe，git.exe 之类的孙进程会残留，
+        所以在 Windows 上用 taskkill /T 连子孙一起结束。
+        """
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    f"taskkill /F /T /PID {process.pid}",
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                process.kill()
+        except Exception as e:
+            logger.info(e)
+        try:
+            process.wait(timeout=5)
+        except Exception:
+            pass
 
     def show_error(self, command=None):
         logger.hr("Update failed", 0)
