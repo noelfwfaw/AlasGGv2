@@ -219,11 +219,11 @@
   "MaaAssist": {
     "_info": {
       "name": "Assist startup",
-      "help": "Floating panel of modded clients: after every \"Start up\" it taps the dynamic island, walks through the disclaimer / assist password flow and hides the floating window"
+      "help": "The floating panel of modded clients (disclaimer -> assist password -> feature panel) covers MAA's recognition area. When enabled, after every \"Start up\" it opens the panel with the volume key, taps \"Agree\" and \"Enter assist\", then closes it with volume-; the dynamic island is never tapped (a fully hidden island leaves nothing tappable)"
     },
     "Enable": {
       "name": "Enable assist startup",
-      "help": "Disabled by default, only needed when the client shows the dynamic island panel\nSkipped when no dynamic island is detected, later tasks are not affected\nThe client must be 1280x720"
+      "help": "Disabled by default, only needed when the client shows the floating panel\nEnable \"Fully hide dynamic island (auto open volume key menu)\" in the client settings first\nNo volume+ is sent when the panel is already open, so it is not toggled closed\nThe assist password is remembered by the client; the script only taps \"Enter assist\"\nOnly 1280x720 is supported; failures are logged as warnings and do not affect later tasks"
     }
   },
   "MaaFight": {
