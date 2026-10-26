@@ -177,8 +177,8 @@
       "help": "MaaEmulator.DeploymentWithPause.help"
     },
     "HideWindowOnStart": {
-      "name": "MaaEmulator.HideWindowOnStart.name",
-      "help": "MaaEmulator.HideWindowOnStart.help"
+      "name": "起動時にエミュレータのウィンドウを隠す",
+      "help": "エミュレータ起動直後にウィンドウを隠します。表示するには MuMu のボスキー（既定 Alt+Q）を押してください。MuMu プレイヤー12 のみ有効。"
     }
   },
   "MaaRecord": {

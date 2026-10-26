@@ -177,8 +177,8 @@
       "help": "影响自动战斗、肉鸽、保全，目前仅支持MaaTouch\n警告：该功能仍在开发中，非常不稳定"
     },
     "HideWindowOnStart": {
-      "name": "MaaEmulator.HideWindowOnStart.name",
-      "help": "MaaEmulator.HideWindowOnStart.help"
+      "name": "启动时隐藏模拟器窗口",
+      "help": "启动模拟器后立刻隐藏窗口，需要查看时按 MuMu 老板键（默认 Alt+Q）唤出。仅对 MuMu 模拟器12 生效。"
     }
   },
   "MaaRecord": {

@@ -177,8 +177,8 @@
       "help": "MaaEmulator.DeploymentWithPause.help"
     },
     "HideWindowOnStart": {
-      "name": "MaaEmulator.HideWindowOnStart.name",
-      "help": "MaaEmulator.HideWindowOnStart.help"
+      "name": "啟動時隱藏模擬器視窗",
+      "help": "啟動模擬器後立即隱藏視窗，需要查看時按 MuMu 老闆鍵（預設 Alt+Q）喚出。僅對 MuMu 模擬器12 生效。"
     }
   },
   "MaaRecord": {

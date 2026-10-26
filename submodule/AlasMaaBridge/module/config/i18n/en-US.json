@@ -177,8 +177,8 @@
       "help": "does the deployment pause trick, experimental"
     },
     "HideWindowOnStart": {
-      "name": "MaaEmulator.HideWindowOnStart.name",
-      "help": "MaaEmulator.HideWindowOnStart.help"
+      "name": "Hide emulator window on start",
+      "help": "Hide the emulator window as soon as it is launched. Press the MuMu boss key (Alt+Q by default) to show it again. MuMu Player 12 only."
     }
   },
   "MaaRecord": {
