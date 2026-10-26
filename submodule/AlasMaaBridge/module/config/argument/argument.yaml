@@ -53,6 +53,8 @@ MaaEmulator:
     option: [ minitouch, maatouch, adb ]
   DeploymentWithPause:
     value: false
+  HideWindowOnStart:
+    value: true
 MaaRecord:
   ReportToPenguin: false
   PenguinID: null

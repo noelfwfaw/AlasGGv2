@@ -66,14 +66,20 @@ class MuMuWindowHider:
         console_exe (str): Path to MuMuManager.exe
         instance_id (int): MuMu instance index
         instance_name (str): Instance folder name, used as an extra alias candidate
+        expected_pids (set[int]): Pids known to belong to this instance. Callers
+            outside ALAS (MAA bridge) cannot rely on the pid snapshot, because
+            their emulator may be started while other instances are running.
     """
 
     POLL_INTERVAL = 0.02
 
-    def __init__(self, console_exe: str, instance_id: int, instance_name: str):
+    def __init__(self, console_exe: str, instance_id: int, instance_name: str,
+                 expected_pids=None):
         self.console_exe = console_exe
         self.instance_id = instance_id
         self.instance_name = instance_name
+        self._expected_pids = set(expected_pids or ())
+        self._allow_baseline = True
 
         # Must be kept on the instance, EnumWindows fails silently if the
         # callback object gets garbage collected.
@@ -88,17 +94,35 @@ class MuMuWindowHider:
         self._skip_logged = 0
         self._skip_suppressed = 0
         self._timer = Timer(self.POLL_INTERVAL).start()
+        self._lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread = None
         self._official_hide_sent = False
 
-    def start(self) -> None:
-        """Start hiding the window. Repeated calls are safe."""
+    def start(self, allow_baseline: bool = True) -> None:
+        """Start hiding the window. Repeated calls are safe.
+
+        Args:
+            allow_baseline (bool): Treat every `MuMuNxDevice.exe` pid that is not
+                in the snapshot taken here as a target. Turn it off for callers
+                that start one instance while other instances already run, or
+                they would adopt the other instances' windows.
+        """
         if self._thread is not None and self._thread.is_alive():
             return
-        self._baseline_pids = self._list_baseline_pids()
-        self._alias_names = self._read_alias_names()
+        self._allow_baseline = allow_baseline
+        self._baseline_pids = self._list_baseline_pids() if allow_baseline else set()
+        alias_names, info_pids = self._read_instance_info()
+        self._alias_names = alias_names
+        self._expected_pids |= info_pids
+        if not allow_baseline and not self._expected_pids and not self._alias_names:
+            # Nothing identifies the instance, hiding nothing would be a silent
+            # failure. The pid snapshot is the last resort here.
+            logger.warning('No pid or alias found for the instance, fallback to pid snapshot')
+            self._allow_baseline = True
+            self._baseline_pids = self._list_baseline_pids()
         logger.info(f'MuMu window hider started, pid baseline: {sorted(self._baseline_pids)}, '
+                    f'expected pids: {sorted(self._expected_pids)}, '
                     f'alias: {sorted(self._alias_names)}')
         self._stop_event.clear()
         self._timer.reset()
@@ -119,15 +143,19 @@ class MuMuWindowHider:
         if self._skip_suppressed:
             logger.info(f'MuMu window hider: {self._skip_suppressed} skip messages suppressed')
 
-    def finish(self) -> None:
+    def finish(self, timeout: float = 10) -> None:
         """Hide the instance for good after boot completed.
 
         Minimizing (`SW_MINIMIZE`) leaves an icon in the taskbar, only `SW_HIDE`
         gives a window without taskbar presence, and the boss key is the only way
         to bring it back.
+
+        Args:
+            timeout (float): Upper bound of the official `hide_window` call. A
+                timeout is logged and swallowed, the window stays hidden anyway.
         """
         self._hide_target_windows()
-        self._send_official_hide()
+        self._send_official_hide(timeout=timeout)
         for hwnd in list(self._hwnds):
             title = _get_window_title(hwnd)
             if user32.IsWindowVisible(hwnd):
@@ -159,7 +187,10 @@ class MuMuWindowHider:
                 continue
             if not self._is_target_process(pid, title):
                 continue
-            if pid not in self._baseline_pids:
+            if pid in self._expected_pids:
+                self._target_pids.add(pid)
+                self._hide(hwnd, title, 'expected')
+            elif self._allow_baseline and pid not in self._baseline_pids:
                 self._target_pids.add(pid)
                 self._hide(hwnd, title, 'pid')
             elif title in self._alias_names:
@@ -174,9 +205,12 @@ class MuMuWindowHider:
 
     def _collect_windows(self):
         # Returns a list of (hwnd, title, pid) of visible windows.
-        self._enum_result = []
-        user32.EnumWindows(self._enum_proc, 0)
-        return self._enum_result
+        # `finish()` runs in the caller thread while the poll thread scans, the
+        # shared enumeration buffer must not be touched by both at once.
+        with self._lock:
+            self._enum_result = []
+            user32.EnumWindows(self._enum_proc, 0)
+            return list(self._enum_result)
 
     def _enum_windows_callback(self, hwnd, lparam):
         try:
@@ -214,7 +248,7 @@ class MuMuWindowHider:
         user32.ShowWindow(hwnd, SW_HIDE)
         logger.info(f'MuMu window hidden: hwnd={hwnd}, title="{title}", match={method}')
 
-    def _send_official_hide(self):
+    def _send_official_hide(self, timeout: float = 10):
         """Send MuMu's own `hide_window` once to keep the boss key state in sync."""
         if self._official_hide_sent:
             return
@@ -222,7 +256,7 @@ class MuMuWindowHider:
         try:
             result = subprocess.run(
                 [self.console_exe, 'control', '-v', str(self.instance_id), 'hide_window'],
-                capture_output=True, timeout=10
+                capture_output=True, timeout=timeout
             )
             # Old MuMu versions may miss this subcommand, keep Win32 only.
             data = json.loads(result.stdout.decode('utf-8', errors='ignore') or '{}')
@@ -233,9 +267,10 @@ class MuMuWindowHider:
         except Exception as e:
             logger.warning(f'MuMuManager hide_window failed: {e}')
 
-    def _read_alias_names(self):
-        """Read the instance alias from `MuMuManager info`, empty on failure."""
+    def _read_instance_info(self):
+        """Read alias and pid from `MuMuManager info`, empty sets on failure."""
         names = set()
+        pids = set()
         if self.instance_name:
             names.add(self.instance_name)
         try:
@@ -246,16 +281,29 @@ class MuMuWindowHider:
             stdout = result.stdout.decode('utf-8', errors='ignore')
             for line in stdout.splitlines():
                 key, sep, value = line.partition('=')
-                if sep and key.strip().strip('"') in ('name', '"name"'):
-                    names.add(value.strip().strip('",'))
+                key = key.strip().strip('"')
+                value = value.strip().strip('",')
+                if not sep:
+                    continue
+                if key == 'name' and value:
+                    names.add(value)
+                elif key == 'pid':
+                    try:
+                        pid = int(value)
+                    except ValueError:
+                        continue
+                    if pid > 0:
+                        pids.add(pid)
             # Newer versions print a single JSON object instead of `key = value`
             if stdout.strip().startswith('{'):
                 data = json.loads(stdout)
                 if data.get('name'):
                     names.add(str(data['name']))
+                if isinstance(data.get('pid'), int) and data['pid'] > 0:
+                    pids.add(data['pid'])
         except Exception as e:
             logger.info(f'MuMuManager info failed, fallback to instance name: {e}')
-        return names
+        return names, pids
 
     @staticmethod
     def _list_baseline_pids():

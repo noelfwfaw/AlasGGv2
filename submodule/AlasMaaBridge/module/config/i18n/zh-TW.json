@@ -175,6 +175,10 @@
     "DeploymentWithPause": {
       "name": "MaaEmulator.DeploymentWithPause.name",
       "help": "MaaEmulator.DeploymentWithPause.help"
+    },
+    "HideWindowOnStart": {
+      "name": "MaaEmulator.HideWindowOnStart.name",
+      "help": "MaaEmulator.HideWindowOnStart.help"
     }
   },
   "MaaRecord": {

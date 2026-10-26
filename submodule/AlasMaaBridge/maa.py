@@ -227,12 +227,15 @@ class MaaDevice(FakeDevice):
                 config.MaaEmulator_Serial = instance.serial
                 serial = instance.serial
 
-            if not emulator.start(instance):
+            if not emulator.start(instance, hide_window=config.MaaEmulator_HideWindowOnStart):
+                emulator.stop_window_hider()
                 logger.critical(f'模拟器启动命令发送失败：{instance.name}（{instance.path}）')
                 return False
 
             serial = emulator.wait_online(instance)
             if not serial:
+                # 没等到 adb，隐藏器必须停掉，否则会一直按着用户的老板键
+                emulator.stop_window_hider()
                 logger.critical(
                     f'模拟器启动超时，adb 未上线（serial={instance.serial}，'
                     f'超时 {MaaEmulator.WAIT_ONLINE_TIMEOUT}s）'
@@ -243,14 +246,18 @@ class MaaDevice(FakeDevice):
                 logger.warning(f'模拟器 serial 已变化：{config.MaaEmulator_Serial} -> {serial}')
                 config.MaaEmulator_Serial = serial
 
+            # boot 已完成，此时收尾隐藏最稳，早于 boot 会被 MuMu 重新 show 回来
+            emulator.finish_window_hide()
             self.maa_reconnect()
             self.emulator_started = True
             logger.info(f'模拟器已重启：{serial}')
             return True
         except RequestHumanTakeover:
             # 连接 MaaCore 失败属于需要人工介入的判断，交给上层直接退出
+            emulator.stop_window_hider()
             raise
         except Exception as e:
+            emulator.stop_window_hider()
             logger.exception(e)
             logger.critical('启动模拟器失败')
             return False

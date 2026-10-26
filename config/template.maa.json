@@ -6,7 +6,8 @@
       "CustomPackageName": "",
       "MaaPath": "D:/Program Files/MAA",
       "TouchMethod": "minitouch",
-      "DeploymentWithPause": false
+      "DeploymentWithPause": false,
+      "HideWindowOnStart": true
     },
     "MaaRecord": {
       "ReportToPenguin": false,

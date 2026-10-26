@@ -34,6 +34,7 @@ class GeneratedConfig:
     MaaEmulator_MaaPath = 'D:/Program Files/MAA'
     MaaEmulator_TouchMethod = 'minitouch'  # minitouch, maatouch, adb
     MaaEmulator_DeploymentWithPause = False
+    MaaEmulator_HideWindowOnStart = True
 
     # Group `MaaRecord`
     MaaRecord_ReportToPenguin = False

@@ -43,6 +43,10 @@ class MaaEmulator:
     # wait_online() 的默认超时（秒）。不要改这个值。
     WAIT_ONLINE_TIMEOUT = 180
 
+    def __init__(self):
+        # 启动期间常驻的窗口隐藏器，adb 上线后由 finish_window_hide() 收尾
+        self._window_hider = None
+
     @staticmethod
     def adb_client():
         host = '127.0.0.1'
@@ -163,9 +167,13 @@ class MaaEmulator:
             return []
         return [(instance.name, instance.serial) for instance in instances]
 
-    def start(self, instance):
+    def start(self, instance, hide_window=True):
         """
         启动模拟器（只发启动命令，不等待）。调用前必须先用 alive()/find() 确认它真的不在。
+
+        Args:
+            instance (EmulatorInstanceBase): 目标实例
+            hide_window (bool): 启动期间是否自动隐藏窗口
 
         Returns:
             bool: 是否成功发出启动命令
@@ -173,12 +181,51 @@ class MaaEmulator:
         if self._mumu_id_missing(instance):
             return False
         logger.info(f'Start emulator: {instance.name}')
+        if hide_window:
+            self._start_window_hider(instance)
         try:
             emulator_start_instance(instance)
         except Exception as e:
             logger.exception(e)
+            self.stop_window_hider()
             return False
         return True
+
+    def _start_window_hider(self, instance):
+        """启动窗口隐藏器，失败只记日志，不影响模拟器启动。"""
+        try:
+            from submodule.AlasMaaBridge.module.device.mumu_window_hider import MaaWindowHider
+            hider = MaaWindowHider.create(instance)
+        except Exception as e:
+            logger.exception(e)
+            hider = None
+        if hider is not None:
+            hider.start()
+            self._window_hider = hider
+
+    def finish_window_hide(self, timeout=10):
+        """
+        模拟器已 boot 完成后的收尾：保持隐藏并同步老板键状态。
+
+        必须在 adb 上线之后调用，早了会在 boot 收尾时被 MuMu 重新 show 回来。
+        """
+        hider = self._window_hider
+        self._window_hider = None
+        if hider is None:
+            return
+        try:
+            hider.finish(timeout=timeout)
+        except Exception as e:
+            logger.exception(e)
+        finally:
+            hider.stop()
+
+    def stop_window_hider(self):
+        """放弃隐藏（启动失败或超时），必须调用，否则线程会一直按着用户的老板键。"""
+        hider = self._window_hider
+        self._window_hider = None
+        if hider is not None:
+            hider.stop()
 
     def stop(self, instance):
         """

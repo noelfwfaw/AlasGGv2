@@ -175,6 +175,10 @@
     "DeploymentWithPause": {
       "name": "Deployment with Pause",
       "help": "does the deployment pause trick, experimental"
+    },
+    "HideWindowOnStart": {
+      "name": "MaaEmulator.HideWindowOnStart.name",
+      "help": "MaaEmulator.HideWindowOnStart.help"
     }
   },
   "MaaRecord": {

@@ -39,6 +39,10 @@
       "DeploymentWithPause": {
         "type": "checkbox",
         "value": false
+      },
+      "HideWindowOnStart": {
+        "type": "checkbox",
+        "value": true
       }
     },
     "MaaRecord": {
