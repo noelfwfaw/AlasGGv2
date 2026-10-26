@@ -6,6 +6,7 @@ from module.event_hospital.clue import HospitalClue
 from module.event_hospital.combat import HospitalCombat
 from module.exception import OilExhausted, ScriptEnd
 from module.logger import logger
+from module.notify import handle_notify
 from module.ui.page import page_hospital, page_campaign_menu
 from module.ui.switch import Switch
 
@@ -232,6 +233,11 @@ class Hospital(HospitalClue, HospitalCombat):
     def run(self):
         # Check if event available
         if self.event_time_limit_triggered():
+            handle_notify(
+                self.config.Error_OnePushConfig,
+                title=f"Alas <{self.config.config_name}> campaign finished",
+                content=f"<{self.config.config_name}> {self.config.Scheduler_Command} reached event time limit"
+            )
             self.config.task_stop()
         self.ui_ensure(page_campaign_menu)
         if self.is_event_entrance_available():

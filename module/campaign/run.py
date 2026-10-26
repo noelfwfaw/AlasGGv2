@@ -116,6 +116,11 @@ class CampaignRun(CampaignEvent):
         # Event limit
         if oil_check and self.campaign.event_pt_limit_triggered():
             logger.hr('Triggered stop condition: Event PT limit')
+            handle_notify(
+                self.config.Error_OnePushConfig,
+                title=f"Alas <{self.config.config_name}> campaign finished",
+                content=f"<{self.config.config_name}> {self.name} reached event PT limit"
+            )
             return True
         # Auto search TaskBalancer
         if self.config.TaskBalancer_Enable and self.campaign.auto_search_coin_limit_triggered:
@@ -395,6 +400,11 @@ class CampaignRun(CampaignEvent):
             if total and self.run_count >= total:
                 break
             if self.campaign.event_time_limit_triggered():
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"Alas <{self.config.config_name}> campaign finished",
+                    content=f"<{self.config.config_name}> {self.name} reached event time limit"
+                )
                 self.config.task_stop()
 
             # Log

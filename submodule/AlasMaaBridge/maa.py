@@ -309,6 +309,8 @@ class MaaDevice(FakeDevice):
 
 
 class ArknightsAutoScript(AzurLaneAutoScript):
+    CONFIG_MOD_NAME = 'maa'
+
     # 本次「游戏未运行」是否已经插过一次开始唤醒；开始唤醒之后的第一个任务真正执行时重置。
     # 只作为初值，赋值都发生在实例上。
     _maa_wake_attempted = False

@@ -2,6 +2,7 @@ from module.gg_handler.gg_data import GGData
 from module.gg_handler.gg_u2 import GGU2
 # from module.gg_handler.gg_screenshot import GGScreenshot
 from module.logger import logger
+from module.notify import handle_notify_throttled
 from module.base.timer import timeout
 import module.config.utils as utils
 
@@ -156,6 +157,12 @@ class GGHandler:
             except Exception as e:
                 logger.exception(e)
                 logger.critical('Maybe your emulator died, trying to restart it')
+                handle_notify_throttled(
+                    self.config.Error_OnePushConfig,
+                    key='gg_emulator_died',
+                    title=f"Alas <{self.config.config_name}> emulator error",
+                    content=f"<{self.config.config_name}> GG ATX/uiautomator died, restarting emulator",
+                )
                 self.device.emulator_start()
             import uiautomator2 as u2
             logger.info('Reset UiAutomator')
@@ -164,6 +171,12 @@ class GGHandler:
             except Exception as e:
                 logger.exception(e)
                 logger.critical('Maybe your emulator died, trying to restart it')
+                handle_notify_throttled(
+                    self.config.Error_OnePushConfig,
+                    key='gg_emulator_died',
+                    title=f"Alas <{self.config.config_name}> emulator error",
+                    content=f"<{self.config.config_name}> GG ATX/uiautomator died, restarting emulator",
+                )
                 self.device.emulator_start()
 
     def handle_restart(self):

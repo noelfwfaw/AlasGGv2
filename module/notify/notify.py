@@ -1,3 +1,5 @@
+import time
+
 import onepush.core
 import yaml
 from onepush import get_notifier
@@ -74,3 +76,29 @@ def handle_notify(_config: str, **kwargs) -> bool:
 
     logger.info("Push notify success")
     return True
+
+
+# Minimum interval in seconds between two pushes with the same key.
+# Recoverable errors repeat, they must not flood the notifier.
+NOTIFY_THROTTLE_INTERVAL = 600
+_last_notify_time = {}
+
+
+def handle_notify_throttled(_config: str, key: str, interval: int = NOTIFY_THROTTLE_INTERVAL, **kwargs) -> bool:
+    """
+    Send a push at most once per `interval` seconds for the same `key`.
+
+    Args:
+        _config (str):
+        key (str):
+        interval (int):
+
+    Returns:
+        bool:
+    """
+    now = time.time()
+    if now - _last_notify_time.get(key, 0) < interval:
+        logger.info(f'Notify "{key}" throttled, skip')
+        return False
+    _last_notify_time[key] = now
+    return handle_notify(_config, **kwargs)

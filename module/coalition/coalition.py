@@ -5,6 +5,7 @@ from module.coalition.assets import *
 from module.coalition.combat import CoalitionCombat
 from module.exception import ScriptEnd, ScriptError
 from module.logger import logger
+from module.notify import handle_notify
 from module.ocr.ocr import Digit
 from module.ui.page import page_campaign_menu
 
@@ -114,6 +115,11 @@ class Coalition(CoalitionCombat, CampaignEvent):
         if pt_check:
             if self.event_pt_limit_triggered():
                 logger.hr('Triggered stop condition: Event PT limit')
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"Alas <{self.config.config_name}> campaign finished",
+                    content=f"<{self.config.config_name}> {self.config.Scheduler_Command} reached event PT limit"
+                )
                 return True
         # TaskBalancer
         if self.run_count >= 1:
@@ -185,6 +191,11 @@ class Coalition(CoalitionCombat, CampaignEvent):
             if total and self.run_count == total:
                 break
             if self.event_time_limit_triggered():
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"Alas <{self.config.config_name}> campaign finished",
+                    content=f"<{self.config.config_name}> {event} reached event time limit"
+                )
                 self.config.task_stop()
 
             # Log

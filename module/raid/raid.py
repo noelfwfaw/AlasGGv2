@@ -9,6 +9,7 @@ from module.combat.assets import *
 from module.exception import ScriptError
 from module.logger import logger
 from module.map.map_operation import MapOperation
+from module.notify import handle_notify
 from module.ocr.ocr import Digit, DigitCounter
 from module.raid.assets import *
 from module.raid.combat import RaidCombat
@@ -263,6 +264,11 @@ class Raid(MapOperation, RaidCombat, CampaignEvent):
         if pt_check:
             if self.event_pt_limit_triggered():
                 logger.hr('Triggered stop condition: Event PT limit')
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"Alas <{self.config.config_name}> campaign finished",
+                    content=f"<{self.config.config_name}> {self.config.Scheduler_Command} reached event PT limit"
+                )
                 return True
         # TaskBalancer
         if coin_check:

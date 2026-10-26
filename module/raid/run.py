@@ -2,6 +2,7 @@ from module.base.timer import Timer
 from module.campaign.campaign_event import CampaignEvent
 from module.exception import ScriptEnd, ScriptError
 from module.logger import logger
+from module.notify import handle_notify
 from module.raid.assets import RAID_REWARDS
 from module.raid.raid import Raid, raid_ocr
 from module.ui.page import page_campaign_menu, page_raid, page_rpg_stage
@@ -84,6 +85,11 @@ class RaidRun(Raid, CampaignEvent):
             if total and self.run_count == total:
                 break
             if self.event_time_limit_triggered():
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"Alas <{self.config.config_name}> campaign finished",
+                    content=f"<{self.config.config_name}> {name} reached event time limit"
+                )
                 self.config.task_stop()
 
             # Log

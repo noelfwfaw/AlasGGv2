@@ -12,7 +12,7 @@ from module.config.config import AzurLaneConfig, TaskEnd
 from module.config.deep import deep_get, deep_set
 from module.exception import *
 from module.logger import logger
-from module.notify import handle_notify
+from module.notify import handle_notify, handle_notify_throttled
 from module.gg_handler.gg_handler import GGHandler
 
 # 模拟器关闭后再拉起需要十几秒，空档太短时关闭模拟器得不偿失。
@@ -140,6 +140,30 @@ class AzurLaneAutoScript:
             self._error_notify(f"<{self.config_name}> Exception occured")
             exit(1)
 
+    # Mod name of the user config file. Override in subclasses that store
+    # their config in `<name>.<mod>.json` instead of `<name>.json`.
+    CONFIG_MOD_NAME = 'alas'
+
+    def _read_push_config(self) -> str:
+        """
+        Read OnePushConfig straight from the user config file on disk.
+
+        Used when `self.config` failed to load, because touching `self.config`
+        in that state would recurse into this function again.
+
+        Returns:
+            str: Empty string if unavailable.
+        """
+        from module.config.deep import deep_get
+        from module.config.utils import filepath_config, read_file
+
+        try:
+            data = read_file(filepath_config(self.config_name, self.CONFIG_MOD_NAME))
+            return deep_get(data, keys='Error.OnePushConfig', default='')
+        except Exception as e:
+            logger.warning(f'Failed to read push config: {e}')
+            return ''
+
     def _error_notify(self, content):
         """
         发送错误推送，远程访问已连接时附带远程控制链接。
@@ -155,9 +179,10 @@ class AzurLaneAutoScript:
         # Read the cached property directly, `self.config` may be the failing
         # attribute and would recurse into this function again.
         config = self.__dict__.get('config')
-        if config is None:
-            logger.warning('Config not loaded, skip error notify')
-            return
+        if config is not None:
+            push_config = config.Error_OnePushConfig
+        else:
+            push_config = self._read_push_config()
         self._notified = True
         try:
             try:
@@ -168,7 +193,7 @@ class AzurLaneAutoScript:
             if entry:
                 content = f"{content}\n远程控制链接: {entry}"
             handle_notify(
-                config.Error_OnePushConfig,
+                push_config,
                 title=f"Alas <{self.config_name}> crashed",
                 content=content,
             )
@@ -638,13 +663,15 @@ class AzurLaneAutoScript:
             else:
                 logger.critical("GG package name doesn't exist, please check your gg setting")
                 logger.critical("友情翻译：你他妈的GG包名填错了，滚去重填！！！")
+                self._error_notify(f"<{self.config_name}> GGPackageNameError\n"
+                                   f"GG package name doesn't exist, will exit")
                 exit(1)
 
     def loop(self):
         """Scheduler loop. Notifies before letting device/emulator errors escape."""
         try:
             self._loop()
-        except Exception as e:
+        except (Exception, SystemExit) as e:
             self._error_notify(f"<{self.config_name}> {type(e).__name__}\nScheduler loop aborted")
             raise
 
@@ -705,6 +732,12 @@ class AzurLaneAutoScript:
                     continue
                 else:
                     logger.critical('Maybe your emulator died, trying to restart it')
+                    handle_notify_throttled(
+                        self.config.Error_OnePushConfig,
+                        key='gg_enable_failed',
+                        title=f"Alas <{self.config_name}> GG error",
+                        content=f"<{self.config_name}> GG status check failed 3 times, restarting emulator",
+                    )
                     self.device.emulator_start()
 
             # Run

@@ -3,6 +3,7 @@ from module.event.assets import *
 from module.exception import CampaignEnd
 from module.logger import logger
 from module.map.map_operation import MapOperation
+from module.notify import handle_notify
 from module.ocr.ocr import DigitCounter
 
 OCR_REMAIN = DigitCounter(ESCORT_REMAIN, letter=(148, 255, 99), threshold=64)
@@ -41,6 +42,11 @@ class MaritimeEscort(MapOperation, CampaignEvent):
 
     def run(self):
         if self.event_time_limit_triggered():
+            handle_notify(
+                self.config.Error_OnePushConfig,
+                title=f"Alas <{self.config.config_name}> campaign finished",
+                content=f"<{self.config.config_name}> {self.config.Scheduler_Command} reached event time limit"
+            )
             self.config.task_stop()
 
         self.ui_goto_main()
