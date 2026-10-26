@@ -360,6 +360,10 @@
       "AdbRestart": {
         "type": "checkbox",
         "value": false
+      },
+      "HideWindowOnStart": {
+        "type": "checkbox",
+        "value": true
       }
     },
     "EmulatorInfo": {

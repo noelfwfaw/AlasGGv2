@@ -1,4 +1,5 @@
 import ctypes
+import os
 import re
 import subprocess
 
@@ -10,6 +11,7 @@ from module.base.timer import Timer
 from module.device.connection import AdbDeviceWithStatus
 from module.device.platform.platform_base import PlatformBase
 from module.device.platform.emulator_windows import Emulator, EmulatorInstance, EmulatorManager
+from module.device.platform.mumu_window_hider import MuMuWindowHider
 from module.logger import logger
 
 
@@ -378,29 +380,71 @@ class PlatformWindows(PlatformBase, EmulatorManager):
         logger.info('Emulator start completed')
         return True
 
+    def _create_window_hider(self):
+        """
+        Create a window hider for MuMu Player 12 when the user enabled it.
+
+        Returns:
+            MuMuWindowHider | None: Hider instance, or None if not applicable
+        """
+        if not self.config.Emulator_HideWindowOnStart:
+            logger.info('Emulator window hiding skipped: disabled in config')
+            return None
+        instance = self.emulator_instance
+        if instance is None:
+            logger.info('Emulator window hiding skipped: no emulator instance found')
+            return None
+        if instance != Emulator.MuMuPlayer12:
+            logger.info(f'Emulator window hiding skipped: {instance.type} is not MuMu Player 12')
+            return None
+        if instance.MuMuPlayer12_id is None:
+            logger.info(f'Emulator window hiding skipped: cannot get instance index from {instance.name}')
+            return None
+        if not instance.name:
+            logger.info('Emulator window hiding skipped: empty instance name')
+            return None
+        console = Emulator.single_to_console(instance.emulator.path)
+        if not os.path.exists(console):
+            logger.info(f'Emulator window hiding skipped: console not found {console}')
+            return None
+        return MuMuWindowHider(
+            console_exe=console,
+            instance_id=instance.MuMuPlayer12_id,
+            instance_name=instance.name,
+        )
+
     def emulator_start(self):
         logger.hr('Emulator start', level=1)
-        for _ in range(3):
-            # Stop
-            if not self._emulator_function_wrapper(self._emulator_stop):
-                return False
-            # Start
-            if self._emulator_function_wrapper(self._emulator_start):
-                if self.emulator_start_watch():
-                    # Success
-                    return True
-                else:
-                    # Start command was sent but emulator didn't come online, stop and start again
-                    continue
-            else:
-                # Failed to start, stop and start again
-                if self._emulator_function_wrapper(self._emulator_stop):
-                    continue
-                else:
+        hider = self._create_window_hider()
+        if hider is not None:
+            hider.start()
+        # Always stop the hider, including failure and timeout paths, otherwise
+        # it keeps pressing the window down and breaks the user's boss key.
+        try:
+            for _ in range(3):
+                # Stop
+                if not self._emulator_function_wrapper(self._emulator_stop):
                     return False
+                # Start
+                if self._emulator_function_wrapper(self._emulator_start):
+                    if self.emulator_start_watch():
+                        # Success
+                        return True
+                    else:
+                        # Start command was sent but emulator didn't come online, stop and start again
+                        continue
+                else:
+                    # Failed to start, stop and start again
+                    if self._emulator_function_wrapper(self._emulator_stop):
+                        continue
+                    else:
+                        return False
 
-        logger.error('Failed to start emulator 3 times, stopped')
-        return False
+            logger.error('Failed to start emulator 3 times, stopped')
+            return False
+        finally:
+            if hider is not None:
+                hider.stop()
 
     def emulator_stop(self):
         logger.hr('Emulator stop', level=1)

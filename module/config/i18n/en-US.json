@@ -496,6 +496,10 @@
     "AdbRestart": {
       "name": "Try to restart adb when no device found",
       "help": ""
+    },
+    "HideWindowOnStart": {
+      "name": "Hide emulator window on start",
+      "help": "Hide the emulator window as soon as it is launched. Press the MuMu boss key (Alt+Q by default) to show it again. MuMu Player 12 only."
     }
   },
   "EmulatorInfo": {

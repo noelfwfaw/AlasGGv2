@@ -75,7 +75,8 @@
       "ScreenshotMethod": "auto",
       "ControlMethod": "MaaTouch",
       "ScreenshotDedithering": false,
-      "AdbRestart": false
+      "AdbRestart": false,
+      "HideWindowOnStart": true
     },
     "EmulatorInfo": {
       "Emulator": "auto",

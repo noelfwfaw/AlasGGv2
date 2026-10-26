@@ -496,6 +496,10 @@
     "AdbRestart": {
       "name": "在检测不到设备的时候尝试重启adb",
       "help": ""
+    },
+    "HideWindowOnStart": {
+      "name": "启动时隐藏模拟器窗口",
+      "help": "启动模拟器后立刻隐藏窗口，需要查看时按 MuMu 老板键（默认 Alt+Q）唤出。仅对 MuMu 模拟器12 生效。"
     }
   },
   "EmulatorInfo": {
