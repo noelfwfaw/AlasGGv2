@@ -24,9 +24,11 @@ test/
 # 编码助手工作区（含本机路径、实例名与临时调试脚本）
 .workbuddy/
 # 开发期调试截图与探测脚本（体积大、无运行时用途）
-doc/gearskin-shots/
-doc/storage-shots/
-doc/assist-shots/
+# doc/ 整体不入库：踩坑工单里有本机绝对路径、实例名与运行实例目录，不能出现在公开仓库
+doc/*
+# 上游原文保持可跟踪，否则每次合并上游都会在这两个路径上冲突
+!doc/Readme.md
+!doc/README.assets/
 
 # Created by .ignore support plugin (hsz.mobi)
 

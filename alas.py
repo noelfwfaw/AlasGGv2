@@ -35,6 +35,8 @@ class AzurLaneAutoScript:
         # JP-only recovery for slow game loading; restart at most once per session
         # so it never enters a restart loop.
         self._jp_game_restart_attempted = False
+        # Whether an error notify has been sent, so one failure only pushes once
+        self._notified = False
 
     @cached_property
     def config(self):
@@ -56,9 +58,12 @@ class AzurLaneAutoScript:
             return device
         except RequestHumanTakeover:
             logger.critical('Request human takeover')
+            self._error_notify(f"<{self.config_name}> RequestHumanTakeover\n"
+                               f"Device init failed, emulator is not available")
             exit(1)
         except Exception as e:
             logger.exception(e)
+            self._error_notify(f"<{self.config_name}> {type(e).__name__}\nDevice init failed")
             exit(1)
 
     @cached_property
@@ -144,18 +149,31 @@ class AzurLaneAutoScript:
         get_entry_point_shared()（本进程隧道优先，否则读 GUI 写入的共享文件
         ./log/remote_access.url）；两者都拿不到时 content 保持原样，不会推送 "None"。
         """
+        if self._notified:
+            logger.info('Error notify already sent, skip')
+            return
+        # Read the cached property directly, `self.config` may be the failing
+        # attribute and would recurse into this function again.
+        config = self.__dict__.get('config')
+        if config is None:
+            logger.warning('Config not loaded, skip error notify')
+            return
+        self._notified = True
         try:
-            from module.webui.remote_access import RemoteAccess
-            entry = RemoteAccess.get_entry_point_shared()
-        except Exception:
-            entry = None
-        if entry:
-            content = f"{content}\n远程控制链接: {entry}"
-        handle_notify(
-            self.config.Error_OnePushConfig,
-            title=f"Alas <{self.config_name}> crashed",
-            content=content,
-        )
+            try:
+                from module.webui.remote_access import RemoteAccess
+                entry = RemoteAccess.get_entry_point_shared()
+            except Exception:
+                entry = None
+            if entry:
+                content = f"{content}\n远程控制链接: {entry}"
+            handle_notify(
+                config.Error_OnePushConfig,
+                title=f"Alas <{self.config_name}> crashed",
+                content=content,
+            )
+        except Exception as e:
+            logger.warning(f'Error notify failed: {e}')
 
     def save_error_log(self):
         """
@@ -623,6 +641,14 @@ class AzurLaneAutoScript:
                 exit(1)
 
     def loop(self):
+        """Scheduler loop. Notifies before letting device/emulator errors escape."""
+        try:
+            self._loop()
+        except Exception as e:
+            self._error_notify(f"<{self.config_name}> {type(e).__name__}\nScheduler loop aborted")
+            raise
+
+    def _loop(self):
         self.gg_check()
         logger.set_file_logger(self.config_name)
         logger.info(f'Start scheduler loop: {self.config_name}')
@@ -663,6 +689,8 @@ class AzurLaneAutoScript:
             # restart it if it died during the wait period
             if not self.device.emulator_check():
                 logger.critical('Request human takeover')
+                self._error_notify(f"<{self.config_name}> EmulatorNotAvailable\n"
+                                   f"Emulator is not running and failed to restart")
                 raise RequestHumanTakeover
 
             # Check GG config before a task begins (to reset temporary config), and decide to enable it.
@@ -693,6 +721,8 @@ class AzurLaneAutoScript:
                     raise
                 logger.critical('Emulator died during task, trying to recover')
                 if not self.device.emulator_check():
+                    self._error_notify(f"<{self.config_name}> EmulatorRecoveryFailed\n"
+                                       f"Emulator died during task and failed to recover")
                     raise
                 logger.warning('Emulator recovered, retry the task once')
                 self.device.stuck_record_clear()

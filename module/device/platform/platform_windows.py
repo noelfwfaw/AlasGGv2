@@ -237,8 +237,12 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                 return instance.serial
         return None
 
-    def emulator_start_watch(self):
+    def emulator_start_watch(self, window_hider=None):
         """
+        Args:
+            window_hider (MuMuWindowHider): Keep the window hidden when set,
+                minimize it by default.
+
         Returns:
             bool: True if startup completed
                 False if timeout
@@ -369,8 +373,12 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             break
 
         if new_window != 0 and new_window != current_window:
-            logger.info(f'Minimize new window: {new_window}')
-            minimize_window(new_window)
+            if window_hider is not None:
+                # Minimizing leaves an icon in the taskbar, hiding does not.
+                window_hider.finish()
+            else:
+                logger.info(f'Minimize new window: {new_window}')
+                minimize_window(new_window)
         if current_window:
             logger.info(f'De-flash current window: {current_window}')
             flash_window(current_window, flash=False)
@@ -427,7 +435,7 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                     return False
                 # Start
                 if self._emulator_function_wrapper(self._emulator_start):
-                    if self.emulator_start_watch():
+                    if self.emulator_start_watch(window_hider=hider):
                         # Success
                         return True
                     else:
