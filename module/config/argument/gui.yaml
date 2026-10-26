@@ -88,6 +88,21 @@ Statistics:
   Total:
   CubeTotal:
   GemTotal:
+  GearSkin:
+  GearSkinLatest:
+  GearSkinBox:
+  GearSkinAmount:
+  GearSkinChange:
+  GearSkinKinds:
+  GearSkinTotal:
+  GearSkinBullet:
+  GearSkinTorpedo:
+  GearSkinShell:
+  GearSkinPlaneTorpedo:
+  GearSkinPlaneFighter:
+  GearSkinPlaneBomber:
+  GearSkinIncomplete:
+  GearSkinHistory:
 
 AddAlas:
   PopupTitle:

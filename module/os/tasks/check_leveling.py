@@ -35,6 +35,10 @@ class OpsiCheckLeveling(OSMap):
         while 1:
             self.device.screenshot()
             level, exp = ship_info_get_level_exp(main=self)
+            if level < 1:
+                logger.warning('Failed to read ship level, skip this check')
+                self.ui_back(appear_button=EQUIPMENT_OPEN, check_button=self.is_in_map)
+                return
             current_total_exp = LIST_SHIP_EXP[level - 1] + exp
             logger.info(
                 f'Level: {level}, Exp: {exp}, Total Exp: {current_total_exp}, '

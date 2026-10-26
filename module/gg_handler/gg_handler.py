@@ -44,6 +44,9 @@ if not (hasattr(utils, 'deep_get') and hasattr(utils, 'deep_set')):
 # 然后再从 utils 模块导入 deep_get 和 deep_set
 from module.config.utils import deep_get, deep_set
 
+# Maximum attempts of restarting the game before requesting human takeover.
+MAX_RESTART_ATTEMPT = 3
+
 
 class GGHandler:
     """
@@ -65,26 +68,24 @@ class GGHandler:
 
     def restart(self, crashed=False):
         from module.handler.login import LoginHandler
-        from module.exception import GameStuckError
+        from module.exception import GameStuckError, RequestHumanTakeover
         _crashed = crashed
-        attempt_count = 0 
-        while True:  # 使用无限循环
+        attempt_count = 0
+        while 1:
             try:
-                # 修改这里：如果 timeout 返回 False（表示成功），则跳出循环
                 if timeout(LoginHandler(config=self.config, device=self.device).app_restart, timeout_sec=600):
-                    logger.info(f"Game restarted successfully after {attempt_count + 1} attempts.")
-                    break
-                else:
-                    # 如果返回 True（表示超时），继续重试
-                    logger.warning("App restart timeout, retrying...")
-            except (GameStuckError) as e:
-                logger.error(f"Game restart failed on attempt {attempt_count + 1}: {e}. Retrying...")
+                    logger.info(f'Game restarted successfully after {attempt_count + 1} attempts.')
+                    return
+                logger.warning(f'App restart timeout on attempt {attempt_count + 1}')
+            except GameStuckError:
+                raise
             except Exception as e:
                 logger.exception(e)
             attempt_count += 1
-            logger.info(f"Restart attempt {attempt_count} failed. Retrying after a delay...")
-            sleep(5)
-        
+            if attempt_count >= MAX_RESTART_ATTEMPT:
+                raise RequestHumanTakeover(f'Game restart failed after {MAX_RESTART_ATTEMPT} attempts')
+            self.device.stuck_record_clear()
+
     def set(self, mode=True):
         """
             Set the GG status to True/False.
@@ -102,9 +103,10 @@ class GGHandler:
             #         .set_on(factor=self.factor)
             self.handle_u2_restart()
             success = timeout(GGU2(config=self.config, device=self.device).set_on, timeout_sec=deep_get(self.config.data, "GameManager.GGHandler.Timeout"), factor=self.factor)
-            if success:
+            if not success:
                 from module.exception import GameStuckError
-                raise GameStuckError
+                raise GameStuckError('GG enable timeout')
+            logger.info(f'GG enabled, factor={self.factor}')
             # Not support screenshot anymore
         else:
             self.gg_reset()
@@ -148,15 +150,19 @@ class GGHandler:
         _need_restart_atx = deep_get(d=self.config.data, keys='GameManager.GGHandler.RestartATX')
         if _need_restart_atx:
             try:
-                timeout(self.device.restart_atx, 60)
-            except Exception:
+                if not timeout(self.device.restart_atx, 60):
+                    logger.warning('Restart ATX timeout, trying to restart emulator')
+                    self.device.emulator_start()
+            except Exception as e:
+                logger.exception(e)
                 logger.critical('Maybe your emulator died, trying to restart it')
                 self.device.emulator_start()
             import uiautomator2 as u2
             logger.info('Reset UiAutomator')
             try:
                 u2.connect(self.device.serial).reset_uiautomator()
-            except Exception:
+            except Exception as e:
+                logger.exception(e)
                 logger.critical('Maybe your emulator died, trying to restart it')
                 self.device.emulator_start()
 

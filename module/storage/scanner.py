@@ -603,6 +603,7 @@ class MaterialScanner(StorageUI):
         """
         unchanged = 0
         for _ in range(40):
+            self.device.stuck_record_clear()
             self.device.screenshot()
             before = self.device.image.copy()
             self.device.click_record_clear()
@@ -719,6 +720,7 @@ class MaterialScanner(StorageUI):
         no_bars = 0        # 检不出名称横条计数
         known = set()      # 本程已见过的 (名, 品质, 数量) 组合
         for _ in range(max_pages):
+            self.device.stuck_record_clear()
             # 长循环反复滑动属于合法场景，清空点击保护计数
             self.device.click_record_clear()
             image = self.wait_settled()
