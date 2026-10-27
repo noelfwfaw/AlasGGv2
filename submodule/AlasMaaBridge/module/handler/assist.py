@@ -37,10 +37,14 @@ KEY_VOLUME_DOWN = 25
 KEY_BACK = 4  # KEYCODE_BACK，前台被切走时退一格回游戏
 
 # 模板文件名 -> 截图中的出现区域 (x1, y1, x2, y2)，分辨率 1280x720
+# 2026-10-27 客户端改版后重新实测（cv2.matchTemplate 反查 minMaxLoc）：
+# 声明页整体下移约 48px，"同意"条目从 y565-627 移到 y613-675；
+# "进入辅助"微调到 y245-307；功能面板标题下移 10px 到 y173-206。
+# 三个素材本身无需更换，旧模板在新界面上的匹配分数仍是 0.905 / 0.928 / 0.921。
 TEMPLATES = {
-    'assist_agree': (428, 565, 700, 627),
-    'assist_enter': (435, 238, 575, 300),
-    'assist_panel': (430, 163, 620, 196),
+    'assist_agree': (428, 613, 700, 675),
+    'assist_enter': (435, 245, 575, 307),
+    'assist_panel': (430, 173, 620, 206),
 }
 
 # 点击前后画面差异的均值阈值。连续两次截图（不点击）实测噪声约 0.03，
@@ -235,8 +239,9 @@ class MaaAssist:
         """
         进入辅助后用音量-关闭面板。
 
-        完成判据：按键后重新截图，agree / enter 均不命中（声明页与功能面板
-        的按钮全部消失）。一次没关掉时补发一次音量-。
+        完成判据：按键后重新截图，agree / enter / panel 全部不命中。
+        必须带上 panel：只判 agree / enter 时，功能面板还开着也会被判成「已关闭」，
+        于是带着挡住 MAA 的面板返回 True。一次没关掉时补发一次音量-。
 
         Returns:
             bool: True 表示面板已关闭且前台确认安全（或无法校验）
@@ -244,7 +249,7 @@ class MaaAssist:
         after = self.press_volume(KEY_VOLUME_DOWN)
         score = self.scores(after)
         self.log_scores(score)
-        if not self.panel_visible(score):
+        if not self.panel_open(score):
             logger.info('辅助启动: 已完成（音量关闭辅助面板）')
             return self.ensure_game_foreground(after)
 
@@ -252,7 +257,7 @@ class MaaAssist:
         after = self.press_volume(KEY_VOLUME_DOWN)
         score = self.scores(after)
         self.log_scores(score)
-        if not self.panel_visible(score):
+        if not self.panel_open(score):
             logger.info('辅助启动: 已完成（音量关闭辅助面板）')
             return self.ensure_game_foreground(after)
 
