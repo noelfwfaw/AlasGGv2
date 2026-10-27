@@ -874,7 +874,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
 
     def maa_assist_island(self):
         from submodule.AlasMaaBridge.module.handler.assist import MaaAssist
-        MaaAssist(self.config).run()
+        MaaAssist(self.config, self.__dict__.get('effective_package_name', None)).run()
 
     def maa_annihilation(self):
         AssistantHandler(config=self.config, asst=self.asst).fight()

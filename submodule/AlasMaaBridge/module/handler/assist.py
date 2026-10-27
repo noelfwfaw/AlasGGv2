@@ -16,6 +16,7 @@
 """
 import os
 import random
+import re
 import time
 
 import cv2
@@ -33,6 +34,7 @@ ASSETS = os.path.join(
 # 「彻底隐藏灵动岛(自动开音量键菜单)」用它们开关辅助面板。
 KEY_VOLUME_UP = 24
 KEY_VOLUME_DOWN = 25
+KEY_BACK = 4  # KEYCODE_BACK，前台被切走时退一格回游戏
 
 # 模板文件名 -> 截图中的出现区域 (x1, y1, x2, y2)，分辨率 1280x720
 TEMPLATES = {
@@ -114,11 +116,13 @@ class MaaAssist:
     # 直接当「声明页顶部」去滑动会把刚打开的页面滑走
     IDLE_BEFORE_SWIPE = 2
 
-    def __init__(self, config):
+    def __init__(self, config, package=None):
         self.config = config
         self.emulator = MaaEmulator()
         self.serial = config.MaaEmulator_Serial
         self.templates = {}
+        # 生效包名（含自定义覆盖）由 maa.py 传入，供前台校验；缺省时跳过校验
+        self.package = package
 
     def run(self):
         """
@@ -235,14 +239,14 @@ class MaaAssist:
         的按钮全部消失）。一次没关掉时补发一次音量-。
 
         Returns:
-            bool: True 表示已确认面板关闭
+            bool: True 表示面板已关闭且前台确认安全（或无法校验）
         """
         after = self.press_volume(KEY_VOLUME_DOWN)
         score = self.scores(after)
         self.log_scores(score)
         if not self.panel_visible(score):
             logger.info('辅助启动: 已完成（音量关闭辅助面板）')
-            return True
+            return self.ensure_game_foreground(after)
 
         logger.info('辅助启动: 面板仍在，补发一次音量-')
         after = self.press_volume(KEY_VOLUME_DOWN)
@@ -250,10 +254,56 @@ class MaaAssist:
         self.log_scores(score)
         if not self.panel_visible(score):
             logger.info('辅助启动: 已完成（音量关闭辅助面板）')
-            return True
+            return self.ensure_game_foreground(after)
 
         logger.warning('辅助启动: failed（音量-后面板仍未关闭）')
         self.save_failure(after)
+        return False
+
+    def _foreground_package(self):
+        """取当前前台应用的包名，adb 异常或解析失败一律返回 None。"""
+        try:
+            output = self.emulator.shell(self.serial, 'dumpsys window | grep -E "mCurrentFocus|mFocusedApp"', timeout=6)
+            # Window{<hash> u0 <包名>/<Activity>}，ActivityRecord 同构；
+            # 必须非贪婪并限制字符集，greedy 会跨行把另一行的包名错配进来
+            match = re.search(r'mCurrentFocus=Window\{[^}]*?\s([^\s/}]+)/', output)
+            if match is None:
+                match = re.search(r'mFocusedApp=.*?ActivityRecord\{[^}]*?\s([^\s/}]+)/', output)
+            return match.group(1) if match else None
+        except Exception:
+            return None
+
+    def ensure_game_foreground(self, failure_image):
+        """
+        面板关闭后正面确认前台还是游戏：音量- 关掉面板后，系统回到的是任务栈
+        里的上一个 App，可能是浏览器，「按钮全消失」的旧判据会把切走误判成关闭成功。
+
+        Args:
+            failure_image (np.ndarray): 进入本方法时的画面，恢复失败时存档
+        Returns:
+            bool: True 表示已确认安全（或无法校验），False 表示没搞定
+        """
+        if not self.package:
+            logger.info('辅助启动: 包名未知，跳过前台校验')
+            return True
+        foreground = self._foreground_package()
+        if foreground is None:
+            logger.info('辅助启动: 无法获取前台应用，跳过前台校验')
+            return True
+        if foreground == self.package:
+            logger.info(f'辅助启动: 前台确认 {foreground} （游戏）')
+            return True
+
+        logger.warning(f'辅助启动: 面板已关闭但前台是 {foreground}，不是游戏 {self.package}')
+        # 只补一次 BACK：退一格语义最轻，monkey/am start 会重建 task 把 Unity 拉回闪屏
+        self.emulator.shell(self.serial, f'input keyevent {KEY_BACK}')
+        time.sleep(1.5)
+        foreground = self._foreground_package()
+        if foreground == self.package:
+            logger.info(f'辅助启动: 已用返回键回到游戏 {foreground}')
+            return True
+        self.save_failure(failure_image)
+        logger.warning('辅助启动: 前台既不是面板也不是游戏，已保存现场截图')
         return False
 
     def ensure_closed(self):
