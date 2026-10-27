@@ -671,7 +671,13 @@ class AzurLaneAutoScript:
         """Scheduler loop. Notifies before letting device/emulator errors escape."""
         try:
             self._loop()
-        except (Exception, SystemExit) as e:
+        except SystemExit as e:
+            # code 0 or None is a planned exit, e.g. wait_until() exit(0) on GUI update, not a crash.
+            if e.code in (0, None):
+                raise
+            self._error_notify(f"<{self.config_name}> {type(e).__name__}\nScheduler loop aborted")
+            raise
+        except Exception as e:
             self._error_notify(f"<{self.config_name}> {type(e).__name__}\nScheduler loop aborted")
             raise
 

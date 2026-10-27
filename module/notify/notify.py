@@ -29,10 +29,9 @@ def _request_with_timeout(method, url, **kwargs):
         **kwargs: Passed to the original request, `timeout` can still be overridden.
 
     Returns:
-        requests.Response or None: OnePush swallows request exceptions, so a timed-out push is logged as success.
+        requests.Response or None: OnePush swallows request exceptions and returns None on failure.
     """
     kwargs.setdefault('timeout', ONEPUSH_REQUEST_TIMEOUT)
-    # TODO: onepush swallows the timeout and looks like success
     return _original_request(method, url, **kwargs)
 
 
@@ -79,6 +78,9 @@ def handle_notify(_config: str, **kwargs) -> bool:
                 config["token"] = access_token
 
         resp = notifier.notify(**config)
+        if resp is None:
+            logger.error("Push notify failed: no response from provider (refused/DNS/timeout), not a config error")
+            return False
         if isinstance(resp, Response):
             if resp.status_code != 200:
                 logger.warning("Push notify failed!")
