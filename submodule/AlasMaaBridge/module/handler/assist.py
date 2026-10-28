@@ -36,16 +36,9 @@ KEY_VOLUME_UP = 24
 KEY_VOLUME_DOWN = 25
 KEY_BACK = 4  # KEYCODE_BACK，前台被切走时退一格回游戏
 
-# 模板文件名 -> 截图中的出现区域 (x1, y1, x2, y2)，分辨率 1280x720
-# 2026-10-27 客户端改版后重新实测（cv2.matchTemplate 反查 minMaxLoc）：
-# 声明页整体下移约 48px，"同意"条目从 y565-627 移到 y613-675；
-# "进入辅助"微调到 y245-307；功能面板标题下移 10px 到 y173-206。
-# 三个素材本身无需更换，旧模板在新界面上的匹配分数仍是 0.905 / 0.928 / 0.921。
-TEMPLATES = {
-    'assist_agree': (428, 613, 700, 675),
-    'assist_enter': (435, 245, 575, 307),
-    'assist_panel': (430, 173, 620, 206),
-}
+# 三张模板素材的文件名。点击位置由 matchTemplate 的 max_loc 反推，客户端改版
+# 不需要重测坐标（曾经写死的坐标在 2026-10-27 改版时失效过一次，已废弃）。
+TEMPLATE_NAMES = ('assist_agree', 'assist_enter', 'assist_panel')
 
 # 点击前后画面差异的均值阈值。连续两次截图（不点击）实测噪声约 0.03，
 # 点开面板约 34，这里取 3 足够区分「这一下没生效」与「开了」。
@@ -138,7 +131,7 @@ class MaaAssist:
             return False
 
         missing = []
-        for name in TEMPLATES:
+        for name in TEMPLATE_NAMES:
             file = os.path.join(ASSETS, name + '.png')
             image = imread_gray(file)
             if image is None:
@@ -150,7 +143,7 @@ class MaaAssist:
             # 一次报全：逐个 return 会让用户补一个跑一次
             logger.warning(f'辅助启动: 缺少模板 {len(missing)} 个：' + '、'.join(missing))
             logger.warning(
-                f'请确认 {ASSETS} 下有 {len(TEMPLATES)} 个 png，且路径不含无法读取的字符'
+                f'请确认 {ASSETS} 下有 {len(TEMPLATE_NAMES)} 个 png，且路径不含无法读取的字符'
             )
             return False
 
@@ -202,14 +195,14 @@ class MaaAssist:
 
             if score['assist_agree'] >= self.THRESHOLD:
                 logger.info(f'AGREE score={score["assist_agree"]:.3f}')
-                self.click('assist_agree')
+                self.click('assist_agree', image)
                 # 换页了，滑动额度重新给这一段用
                 swipe_times = 0
                 idle = 0
                 continue
             if score['assist_enter'] >= self.THRESHOLD:
                 logger.info(f'ENTER_ASSIST score={score["assist_enter"]:.3f}')
-                self.click('assist_enter')
+                self.click('assist_enter', image)
                 # 已进入辅助，用音量-关闭面板
                 return self.close_panel()
             if score['assist_panel'] >= self.THRESHOLD:
@@ -307,6 +300,9 @@ class MaaAssist:
         if foreground == self.package:
             logger.info(f'辅助启动: 已用返回键回到游戏 {foreground}')
             return True
+        if foreground is None:
+            logger.info('辅助启动: 返回键后无法获取前台应用，跳过前台校验')
+            return True
         self.save_failure(failure_image)
         logger.warning('辅助启动: 前台既不是面板也不是游戏，已保存现场截图')
         return False
@@ -356,13 +352,12 @@ class MaaAssist:
         raise RuntimeError('无法解码截图')
 
     def match(self, image, name):
-        """
-        Returns:
-            float: 归一化相关系数，0~1
-        """
+        """匹配模板，返回 (分数, (x, y))，分数为归一化相关系数 0~1。"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
         result = cv2.matchTemplate(gray, self.templates[name], cv2.TM_CCOEFF_NORMED)
-        return float(cv2.minMaxLoc(result)[1])
+        # minMaxLoc 返回四元组，第二个是 max_val，第四个是 max_loc
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+        return float(max_val), max_loc
 
     def scores(self, image=None):
         """
@@ -375,7 +370,7 @@ class MaaAssist:
         if image is None:
             image = self.screenshot()
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        return {name: self.match(gray, name) for name in self.templates}
+        return {name: self.match(gray, name)[0] for name in self.templates}
 
     def changed(self, before, after):
         """
@@ -444,10 +439,16 @@ class MaaAssist:
         """
         return self.panel_visible(score) or score['assist_panel'] >= self.THRESHOLD
 
-    def click(self, name):
-        x1, y1, x2, y2 = TEMPLATES[name]
-        x = random.randint(x1 + 4, x2 - 4)
-        y = random.randint(y1 + 4, y2 - 4)
+    def click(self, name, image):
+        """点击当前帧里模板的最佳匹配位置，判定与点击同源，界面挪了也跟着走。"""
+        score, (x, y) = self.match(image, name)
+        if score < self.THRESHOLD:
+            logger.warning(f'辅助启动: {name} score={score:.3f} 低于阈值，跳过点击')
+            return False
+        h, w = self.templates[name].shape
+        # 中心点附近 ±4px 抖动，避免每次都点同一个像素
+        x += w // 2 + random.randint(-4, 4)
+        y += h // 2 + random.randint(-4, 4)
         return self.tap(x, y)
 
     def press_volume(self, keycode):
