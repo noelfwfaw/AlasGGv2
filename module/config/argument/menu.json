@@ -103,6 +103,7 @@
     "tasks": [
       "IslandProduction",
       "IslandOrder",
+      "IslandTransport",
       "IslandFreebie",
       "IslandCollect",
       "IslandSeasonTask",
