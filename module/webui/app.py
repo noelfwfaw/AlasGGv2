@@ -868,8 +868,9 @@ class AlasGUI(Frame):
 
         for box in latest_boxes:
             box_name = box.get("box", "")
+            skins = box.get("skins", [])
             rows = []
-            for skin in box.get("skins", []):
+            for skin in skins:
                 name = skin.get("name", "")
                 amount = skin.get("amount", 0)
                 old = prev_amounts.get((box_name, name))
@@ -887,11 +888,14 @@ class AlasGUI(Frame):
                     str(amount),
                     put_html(change),
                 ])
+            # 标题的分数是「已获得种类 / 总槽位」，与顶部「已获得种类」同一口径
+            # （amount > 0 的槽位个数），不是采到的槽位数 —— 数量为 0 的槽位
+            # 也是采到了的，但它不属于「已获得」，不能计入分子
+            owned = sum(1 for skin in skins if skin.get("amount", 0) > 0)
             header_text = (f'{box_name} ({t("Gui.Statistics.GearSkinTotal")}: '
                            f'{box_total(box)})')
-            slot_count = box.get("slot_count")
-            if slot_count:
-                header_text += f' - {slot_count}/{expected_per_box}'
+            if skins:
+                header_text += f' - {owned}/{expected_per_box}'
                 if not box.get("complete", True):
                     header_text += f' {t("Gui.Statistics.GearSkinIncomplete")}'
             put_table(
