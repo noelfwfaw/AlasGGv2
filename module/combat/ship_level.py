@@ -34,6 +34,23 @@ def _empty_data():
     return {'version': 1, 'fleets': {}, 'os': {}}
 
 
+def _task_name(config):
+    """
+    Args:
+        config (Config): Alas config.
+
+    Returns:
+        str: Command name of the current task, empty if unknown.
+
+        `config.task` is a `Function` object (module/config/config.py:24), not a
+        string, so it can not be dumped into json directly. The task name lives
+        in its `command` attribute.
+    """
+    task = getattr(config, 'task', '')
+    task = task.command if hasattr(task, 'command') else task
+    return task if isinstance(task, str) else ''
+
+
 def _write(config_name, data):
     """
     Args:
@@ -112,7 +129,7 @@ def record_ship_level(config, show_index, levels):
         if not any(merged):
             return False
 
-        task = getattr(config, 'task', '')
+        task = _task_name(config)
         if merged == old_levels and old.get('task', '') == task:
             # Called after every battle, avoid meaningless IO
             return False
@@ -183,7 +200,7 @@ def record_os_ship_level(config, fleet_index, ships, target_level=0):
             'levels': merged_levels,
             'exp': merged_exp,
             'updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'task': getattr(config, 'task', ''),
+            'task': _task_name(config),
             'target': target_level,
         }
         _write(config.config_name, data)
