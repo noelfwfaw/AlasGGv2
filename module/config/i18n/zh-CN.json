@@ -3426,7 +3426,13 @@
       "ThisWeek": "本周",
       "ThisMonth": "本月",
       "ThisYear": "今年",
-      "History": "历史"
+      "History": "历史",
+      "ShipLevel": "队伍等级",
+      "ShipLevelUpdated": "更新于",
+      "ShipLevelEmpty": "暂无等级记录",
+      "ShipLevelFleetLabel": "{0} 队",
+      "ShipLevelOSFleetLabel": "大世界 {0} 队",
+      "ShipLevelTarget": "目标 {0}"
     },
     "Statistics": {
       "NoData": "暂无数据",

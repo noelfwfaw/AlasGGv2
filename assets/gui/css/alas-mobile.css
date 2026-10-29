@@ -60,6 +60,10 @@
     max-width: none;
 }
 
+#pywebio-scope-dashboard > #pywebio-scope-dashboard_levels {
+    flex: 1 1 100%;
+}
+
 /* Statistics page: narrow screen shows one month detail per row. */
 #pywebio-scope-statistics > [id^="pywebio-scope-statistics_year_"] {
     grid-template-columns: 1fr;

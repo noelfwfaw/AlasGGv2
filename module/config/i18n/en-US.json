@@ -3423,7 +3423,13 @@
       "ThisWeek": "This Week",
       "ThisMonth": "This Month",
       "ThisYear": "This Year",
-      "History": "History"
+      "History": "History",
+      "ShipLevel": "Fleet levels",
+      "ShipLevelUpdated": "Updated",
+      "ShipLevelEmpty": "No level records",
+      "ShipLevelFleetLabel": "Fleet {0}",
+      "ShipLevelOSFleetLabel": "OpSi Fleet {0}",
+      "ShipLevelTarget": "Target {0}"
     },
     "Statistics": {
       "NoData": "No data",

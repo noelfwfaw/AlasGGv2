@@ -450,6 +450,10 @@ pre.rich-traceback-code {
     flex: 0 1 22rem;
 }
 
+#pywebio-scope-dashboard > #pywebio-scope-dashboard_levels {
+    flex: 0 1 30rem;
+}
+
 /* Statistics page: each year's month totals and per-month day details share
    one adaptive grid, so the wide page is filled by several narrow tables
    instead of a single stacked column. */

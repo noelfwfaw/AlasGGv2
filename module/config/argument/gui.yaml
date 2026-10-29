@@ -79,6 +79,12 @@ Overview:
   ThisMonth:
   ThisYear:
   History:
+  ShipLevel:
+  ShipLevelUpdated:
+  ShipLevelEmpty:
+  ShipLevelFleetLabel:
+  ShipLevelOSFleetLabel:
+  ShipLevelTarget:
 
 Statistics:
   NoData:

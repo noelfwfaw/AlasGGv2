@@ -3423,7 +3423,13 @@
       "ThisWeek": "Gui.Overview.ThisWeek",
       "ThisMonth": "Gui.Overview.ThisMonth",
       "ThisYear": "Gui.Overview.ThisYear",
-      "History": "Gui.Overview.History"
+      "History": "Gui.Overview.History",
+      "ShipLevel": "艦隊レベル",
+      "ShipLevelUpdated": "更新",
+      "ShipLevelEmpty": "レベル記録なし",
+      "ShipLevelFleetLabel": "{0} 艦隊",
+      "ShipLevelOSFleetLabel": "大世界 {0} 艦隊",
+      "ShipLevelTarget": "目標 {0}"
     },
     "Statistics": {
       "NoData": "データなし",

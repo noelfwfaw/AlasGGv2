@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from module.combat.ship_level import record_os_ship_level
 from module.equipment.assets import EQUIPMENT_OPEN
 from module.exception import ScriptError
 from module.logger import logger
@@ -32,11 +33,16 @@ class OpsiCheckLeveling(OSMap):
         self.ship_info_enter(FLEET_FLAGSHIP)
         all_full_exp = True
 
+        fleet_index = self.config.OpsiFleet_Fleet
+        ships = []
+        slot = 0
+
         while 1:
             self.device.screenshot()
             level, exp = ship_info_get_level_exp(main=self)
             if level < 1:
                 logger.warning('Failed to read ship level, skip this check')
+                record_os_ship_level(self.config, fleet_index, ships, target_level)
                 self.ui_back(appear_button=EQUIPMENT_OPEN, check_button=self.is_in_map)
                 return
             current_total_exp = LIST_SHIP_EXP[level - 1] + exp
@@ -44,11 +50,14 @@ class OpsiCheckLeveling(OSMap):
                 f'Level: {level}, Exp: {exp}, Total Exp: {current_total_exp}, '
                 f'Target Exp: {LIST_SHIP_EXP[target_level - 1]}'
             )
+            ships.append((slot, level, exp))
+            slot += 1
             if current_total_exp < LIST_SHIP_EXP[target_level - 1]:
                 all_full_exp = False
-                break
             if not self.ship_view_next():
                 break
+
+        record_os_ship_level(self.config, fleet_index, ships, target_level)
 
         if all_full_exp:
             logger.info(

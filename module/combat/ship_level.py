@@ -1,0 +1,193 @@
+"""
+Ship level records for the WebUI dashboard.
+
+File lives at log/campaign/<config_name>/ship_level.json, shared by
+mainline / event battles (fleets) and Operation Siren leveling (os).
+"""
+import json
+import os
+from datetime import datetime
+
+from deploy.atomic import atomic_write
+from module.logger import logger
+
+OUTPUT_FOLDER = 'log/campaign'
+FILE_NAME = 'ship_level.json'
+
+
+def record_path(config_name):
+    """
+    Args:
+        config_name (str): Alas config name.
+
+    Returns:
+        str: Path of the ship level record file.
+    """
+    return os.path.join(OUTPUT_FOLDER, config_name, FILE_NAME)
+
+
+def _empty_data():
+    """
+    Returns:
+        dict: Empty record data.
+    """
+    return {'version': 1, 'fleets': {}, 'os': {}}
+
+
+def _write(config_name, data):
+    """
+    Args:
+        config_name (str): Alas config name.
+        data (dict): Record data to write.
+    """
+    folder = os.path.join(OUTPUT_FOLDER, config_name)
+    os.makedirs(folder, exist_ok=True)
+    atomic_write(record_path(config_name), json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def load_levels(config_name):
+    """
+    Args:
+        config_name (str): Alas config name.
+
+    Returns:
+        dict: {
+            'version': 1,
+            'fleets': {fleet_index (str): {'levels', 'updated', 'task', 'source'}},
+            'os': {fleet_index (str): {'levels', 'exp', 'updated', 'task', 'target'}},
+        }
+        Both 'fleets' and 'os' are always present.
+    """
+    path = record_path(config_name)
+    if not os.path.exists(path):
+        return _empty_data()
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (ValueError, OSError) as e:
+        logger.warning(f'Ship level record load failed: {e}')
+        return _empty_data()
+    if not isinstance(data, dict):
+        return _empty_data()
+    data.setdefault('fleets', {})
+    data.setdefault('os', {})
+    return data
+
+
+def record_ship_level(config, show_index, levels):
+    """
+    Record mainline / event fleet levels read from the left side fleet panel.
+    Same fleet index is overwritten between tasks, this is intended.
+
+    Args:
+        config (Config): Alas config.
+        show_index (int): Which fleet row is displayed on screen, 1 or 2.
+        levels (list[int]): 6 slots from LevelOcr, 0 means not read.
+
+    Returns:
+        bool: True if the record file is updated.
+    """
+    try:
+        if show_index == 1:
+            fleet_index, source = config.Fleet_Fleet1, 'Fleet1'
+        elif show_index == 2:
+            fleet_index, source = config.Fleet_Fleet2, 'Fleet2'
+        else:
+            return False
+        # 0 means the second fleet is not in use, None / str means broken config
+        if not isinstance(fleet_index, int) or fleet_index <= 0:
+            return False
+
+        data = load_levels(config.config_name)
+        old = data['fleets'].get(str(fleet_index), {})
+        old_levels = old.get('levels') if isinstance(old.get('levels'), list) else []
+        merged = []
+        for i in range(6):
+            level = levels[i] if i < len(levels) else 0
+            # 0 means not read this time, >200 is OCR noise, keep the old value then
+            if isinstance(level, int) and 0 < level <= 200:
+                merged.append(level)
+            else:
+                merged.append(old_levels[i] if i < len(old_levels) else 0)
+        if not any(merged):
+            return False
+
+        task = getattr(config, 'task', '')
+        if merged == old_levels and old.get('task', '') == task:
+            # Called after every battle, avoid meaningless IO
+            return False
+
+        data['fleets'][str(fleet_index)] = {
+            'levels': merged,
+            'updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'task': task,
+            'source': source,
+        }
+        _write(config.config_name, data)
+        return True
+    except Exception as e:
+        # Attached to the combat main flow, must never break a battle
+        logger.warning(f'Ship level record failed: {e}')
+        return False
+
+
+def record_os_ship_level(config, fleet_index, ships, target_level=0):
+    """
+    Record Operation Siren ship levels read from ship detail pages.
+
+    Args:
+        config (Config): Alas config.
+        fleet_index (int): OpsiFleet_Fleet, 1~4.
+        ships (list[tuple]): Each item is (slot, level, exp), slot is
+            0-based counted from the flagship.
+        target_level (int): OpsiCheckLeveling_TargetLevel, 0 if unknown.
+
+    Returns:
+        bool: True if the record file is updated.
+    """
+    try:
+        if not isinstance(fleet_index, int) or not 1 <= fleet_index <= 4:
+            return False
+
+        data = load_levels(config.config_name)
+        old = data['os'].get(str(fleet_index), {})
+
+        def _pad(values):
+            values = values if isinstance(values, list) else []
+            return [values[i] if i < len(values) else 0 for i in range(6)]
+
+        old_levels = _pad(old.get('levels'))
+        old_exp = _pad(old.get('exp'))
+        merged_levels = list(old_levels)
+        merged_exp = list(old_exp)
+        for item in ships:
+            try:
+                slot, level, exp = item
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(slot, int) or not 0 <= slot <= 5:
+                continue
+            # Level range is already validated in ship_info_get_level_exp, double check here
+            if isinstance(level, int) and 0 < level <= 125:
+                merged_levels[slot] = level
+            if isinstance(exp, int) and exp >= 0:
+                merged_exp[slot] = exp
+        # Reading only a few ships is common in Operation Siren, no full-fleet requirement here
+        if not any(merged_levels):
+            return False
+
+        if merged_levels == old_levels and merged_exp == old_exp and old.get('target', 0) == target_level:
+            return False
+
+        data['os'][str(fleet_index)] = {
+            'levels': merged_levels,
+            'exp': merged_exp,
+            'updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'task': getattr(config, 'task', ''),
+            'target': target_level,
+        }
+        _write(config.config_name, data)
+        return True
+    except Exception as e:
+        logger.warning(f'Ship level record failed: {e}')
+        return False

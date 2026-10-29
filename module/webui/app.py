@@ -1231,6 +1231,51 @@ class AlasGUI(Frame):
         if self._log.first_display:
             self._log.first_display = False
 
+    def _update_ship_levels(self):
+        """Render recorded fleet levels, mainline / event fleets and Operation Siren fleets."""
+        if not self._log.display_dashboard:
+            return
+        try:
+            from module.combat.ship_level import load_levels
+            data = load_levels(self.alas_config.config_name)
+            fleets = sorted(data['fleets'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
+            os_fleets = sorted(data['os'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
+            if not fleets and not os_fleets:
+                return
+        except Exception:
+            return
+
+        with use_scope('dashboard_levels', clear=True):
+            put_text(t('Gui.Overview.ShipLevel')).style('font-weight: 700; margin: .3rem 0;')
+            for key, record in fleets:
+                levels = ' / '.join(str(v) if v else '-' for v in record.get('levels', []))
+                put_row(
+                    content=[
+                        put_text(t('Gui.Overview.ShipLevelFleetLabel', key)).style('--dashboard-help--'),
+                        put_text(levels),
+                        put_text(
+                            f"{t('Gui.Overview.ShipLevelUpdated')} {record.get('updated', '')}"
+                        ).style('--dashboard-help--'),
+                    ],
+                    size='auto 1fr auto',
+                )
+            for key, record in os_fleets:
+                levels = ' / '.join(str(v) if v else '-' for v in record.get('levels', []))
+                label = t('Gui.Overview.ShipLevelOSFleetLabel', key)
+                target = record.get('target', 0)
+                if target:
+                    label += ' ' + t('Gui.Overview.ShipLevelTarget', target)
+                put_row(
+                    content=[
+                        put_text(label).style('--dashboard-help--'),
+                        put_text(levels),
+                        put_text(
+                            f"{t('Gui.Overview.ShipLevelUpdated')} {record.get('updated', '')}"
+                        ).style('--dashboard-help--'),
+                    ],
+                    size='auto 1fr auto',
+                )
+
     def alas_update_dashboard(self, _clear=False):
         if not self.visible:
             return
@@ -1239,6 +1284,7 @@ class AlasGUI(Frame):
                 self._update_dashboard(num=4, groups_to_display=['Oil', 'Coin', 'Gem', 'Pt'])
             elif self._log.display_dashboard:
                 self._update_dashboard()
+            self._update_ship_levels()
 
     @use_scope("content", clear=True)
     def alas_daemon_overview(self, task: str) -> None:

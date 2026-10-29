@@ -3,6 +3,7 @@ import module.config.server as server
 from module.base.base import ModuleBase
 from module.base.button import *
 from module.base.decorator import Config
+from module.combat.ship_level import record_ship_level
 from module.logger import logger
 from module.ocr.ocr import Digit
 
@@ -57,14 +58,13 @@ class Level(ModuleBase):
         Returns:
             list[int]:
         """
-        if not self.config.StopCondition_ReachLevel and not self.config.STOP_IF_REACH_LV32:
-            return [-1] * 6
-
         self._lv_before_battle = self.lv if after_battle else [-1] * 6
 
         ocr = LevelOcr(self._lv_grid().buttons, name='LevelOcr')
         self.lv = ocr.ocr(self.device.image)
         logger.attr('LEVEL', ', '.join(str(data) for data in self.lv))
+        # fleet_show_index is defined on MapOperation, Level itself doesn't know it
+        record_ship_level(self.config, getattr(self, 'fleet_show_index', 1), self.lv)
 
         if after_battle:
             self.lv_triggered()
