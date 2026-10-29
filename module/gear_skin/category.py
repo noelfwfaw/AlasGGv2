@@ -1,11 +1,14 @@
 """
 外观装备分类与展示配色。
 
-名称固定以 子弹 / 鱼雷 / 炮弹 / 飞机 结尾（assets.GEAR_SKIN_SUFFIXES）；
-每箱的三组同名飞机在采集阶段已由 PLANE_VARIANT_SUFFIXES 补上型号后缀
-（鱼雷）/（战斗）/（轰炸），它们属于六类中的三类独立类型。
+名称后缀按服务器的写法都认（见 language.py）：
+  国服 子弹 / 鱼雷 / 炮弹 / 飞机
+  日服 弾 / 魚雷 / 砲(砲弾) / 艦載機
+每箱的三组同名飞机在采集阶段已补上型号后缀（国服 鱼雷/战斗/轰炸，
+日服 魚雷/戦闘/爆撃），它们属于六类中的三类独立类型。
 
-分类只用于 WebUI 着色，不影响统计口径。
+分类只用于 WebUI 着色，不影响统计口径；同一份记录里可能同时存在两种
+服务器的写法（换服后历史记录仍保留），所以判定不区分服务器。
 """
 
 # 分类键 -> 颜色。六类色相互不相同，且对白底对比度都在 4.3:1 以上
@@ -28,14 +31,21 @@ SKIN_CATEGORY_ORDER = (
     'plane_torpedo', 'plane_fighter', 'plane_bomber',
 )
 
-# 型号后缀 -> 分类（全角/半角括号都认，OCR 与人工编辑都可能出现半角）
+# 型号后缀 -> 分类（全角/半角括号都认，OCR 与人工编辑都可能出现半角；
+# 日服用 魚雷/戦闘/爆撃，与国服的 鱼雷/战斗/轰炸 并存）
 PLANE_VARIANT_CATEGORY = {
     '（鱼雷）': 'plane_torpedo',
     '(鱼雷)': 'plane_torpedo',
+    '（魚雷）': 'plane_torpedo',
+    '(魚雷)': 'plane_torpedo',
     '（战斗）': 'plane_fighter',
     '(战斗)': 'plane_fighter',
+    '（戦闘）': 'plane_fighter',
+    '(戦闘)': 'plane_fighter',
     '（轰炸）': 'plane_bomber',
     '(轰炸)': 'plane_bomber',
+    '（爆撃）': 'plane_bomber',
+    '(爆撃)': 'plane_bomber',
 }
 
 # 分类键 -> i18n 词条名（Gui.Statistics.<name>），供 WebUI 图例使用
@@ -66,24 +76,28 @@ def skin_category(name):
     if not text:
         return None
 
-    # 飞机：末字偶尔被 OCR 漏识成「…飞」，也照样归到飞机
-    if '飞机' in text or text.endswith('机') or text.endswith('飞'):
+    # 飞机：国服「…飞机」、日服「…艦載機」；末字偶尔被 OCR 漏识成「…飞」，
+    # 也照样归到飞机。必须在鱼雷/炮弹之前判，否则 星环魔影飞机（鱼雷）
+    # 会先命中「鱼雷」。
+    if ('飞机' in text or '艦載機' in text
+            or text.endswith('机') or text.endswith('飞') or text.endswith('機')):
         for suffix, category in PLANE_VARIANT_CATEGORY.items():
             if text.endswith(suffix):
                 return category
         return 'plane'
 
     # 炮弹：多数叫「…炮弹」，但也有「…啾炮」这种同族写法（实测
-    # 祝福天使啾炮 / 霉运恶魔啾炮 就是炮弹那一类），所以按「炮」判。
-    if '炮弹' in text or text.endswith('炮'):
+    # 祝福天使啾炮 / 霉运恶魔啾炮 就是炮弹那一类），所以按「炮」判；
+    # 日服写作「…砲」「…砲弾」。
+    if '炮弹' in text or '砲弾' in text or text.endswith('炮') or text.endswith('砲'):
         return 'shell'
     if '子弹' in text:
         return 'bullet'
-    if '鱼雷' in text:
+    if '鱼雷' in text or '魚雷' in text:
         return 'torpedo'
     # 兜底：后缀被 OCR 弄脏（例如「峭目子弹一」）时，多数仍能以「弹」收尾，
-    # 而「炮弹」已在上面判掉，剩下的只可能是子弹
-    if text.endswith('弹'):
+    # 而「炮弹」已在上面判掉，剩下的只可能是子弹；日服同理按「弾」收尾
+    if text.endswith('弹') or text.endswith('弾'):
         return 'bullet'
     return None
 

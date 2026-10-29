@@ -907,9 +907,10 @@ class MaterialScanner(StorageUI):
             # 自身吞掉所有异常，任何失败都不影响仓库扫描结果与 task_delay。
             # StorageScan 任务没有绑定 EventGeneral 组，getattr 恒返回默认 False，
             # 必须跨组读取；改 task.yaml 会给任务面板塞无关配置
-            # 外观装备统计只做过国服：箱名、装备名、界面按钮文案都靠中文名条
-            # 与中文 OCR，日服等其它服务器读不出来，直接跳过而不是空跑一轮
-            if server.server == 'cn' and self.config.cross_get(
+            # 外观装备统计只做过国服与日服：箱名、装备名、界面按钮文案都靠
+            # 对应服务器的文字规则（module/gear_skin/language.py），en/tw 没
+            # 实测过，直接跳过而不是空跑一轮
+            if server.server in ('cn', 'jp') and self.config.cross_get(
                     keys='EventGeneral.EventGeneral.GearSkinStatistic', default=False):
                 try:
                     from module.gear_skin.gear_skin import GearSkinScanner

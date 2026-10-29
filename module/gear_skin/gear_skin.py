@@ -24,12 +24,14 @@ from datetime import datetime
 
 import cv2
 
+import module.config.server as server
 from module.base.button import Button
 from module.base.decorator import cached_property
 from module.base.timer import Timer
 from module.base.utils import color_similarity_2d, crop, extract_letters, save_image
 from module.config.utils import server_time_offset
 from module.gear_skin.assets import *
+from module.gear_skin.language import build_language
 from module.gear_skin.records import append_record
 from module.logger import logger
 from module.ocr.ocr import Ocr
@@ -42,11 +44,9 @@ from module.ui.scroll import Scroll
 from module.ui.assets import SHOP_GOTO_MUNITIONS
 from module.ui.page import page_munitions
 
-OCR_EXCHANGE_DETAIL = Ocr(EXCHANGE_DETAIL_BUTTON, lang='cnocr', name='OCR_EXCHANGE_DETAIL')
-OCR_EXCHANGE_TITLE = Ocr(EXCHANGE_TITLE_AREA, lang='cnocr', letter=(232, 200, 90),
-                         name='OCR_EXCHANGE_TITLE')
-OCR_EXCHANGE_CANCEL = Ocr(EXCHANGE_CANCEL, lang='cnocr', name='OCR_EXCHANGE_CANCEL')
-OCR_INFO_TITLE = Ocr(INFO_TITLE_AREA, lang='cnocr', name='OCR_INFO_TITLE')
+# 兑换弹窗与信息弹窗的 OCR 不在这里构造：语言随服务器变化（日服名条是日文），
+# 而 server.server 要等运行期才确定。改用下面的 cached_property 按需构造，
+# 避免 import 时把模型锁死在国服。
 
 # 信息弹窗的滚动条。只有拖它才能稳定翻页。
 INFO_SCROLL = Scroll(area=INFO_SCROLL_AREA, color=INFO_SCROLL_COLOR,
@@ -55,14 +55,47 @@ INFO_SCROLL.color_threshold = INFO_SCROLL_COLOR_THRESHOLD
 
 ERROR_FOLDER = os.path.join('log', 'storage_scan', 'err')
 
+# 名称开头偶尔带出标点（实测「，火焰球子弹」）。汉字、假名、拉丁字母、数字
+# 都保留——日服有整条名称都是假名的装备（レイムボール弾 / シルトライデン），
+# 只放行汉字会把名称切空、整格被当噪声丢掉；其余前导字符一律剥掉。
+NAME_NOISE_PATTERN = re.compile(
+    r'^[^\u4e00-\u9fa5\u3041-\u3096\u30a1-\u30fa\u30fcA-Za-z0-9]+')
+
 
 class GearSkinScanner(EventShopClerk, ShopUI):
     def __init__(self, config, device=None, task=None):
         super().__init__(config, device, task)
 
     @cached_property
+    def lang(self):
+        """
+        按服务器选文字规则（OCR 语言、UI 关键词、名称后缀）。
+
+        Returns:
+            module.gear_skin.language.GearSkinLanguage:
+        """
+        return build_language(server.server)
+
+    @cached_property
+    def ocr_detail(self):
+        return Ocr(EXCHANGE_DETAIL_BUTTON, lang=self.lang.ocr_lang, name='OCR_EXCHANGE_DETAIL')
+
+    @cached_property
+    def ocr_title(self):
+        return Ocr(EXCHANGE_TITLE_AREA, lang=self.lang.ocr_lang, letter=(232, 200, 90),
+                   name='OCR_EXCHANGE_TITLE')
+
+    @cached_property
+    def ocr_cancel(self):
+        return Ocr(EXCHANGE_CANCEL, lang=self.lang.ocr_lang, name='OCR_EXCHANGE_CANCEL')
+
+    @cached_property
+    def ocr_info_title(self):
+        return Ocr(INFO_TITLE_AREA, lang=self.lang.ocr_lang, name='OCR_INFO_TITLE')
+
+    @cached_property
     def ocr_model(self):
-        return Ocr((0, 0, 1, 1), lang='cnocr').cnocr
+        return Ocr((0, 0, 1, 1), lang=self.lang.ocr_lang).cnocr
 
     def run(self, scan_time):
         """
@@ -103,7 +136,7 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         """
         for attempt in range(6):
             self.device.screenshot()
-            if '取消' in OCR_EXCHANGE_CANCEL.ocr(self.device.image):
+            if self.lang.cancel_text in self.ocr_cancel.ocr(self.device.image):
                 self.click_area(EXCHANGE_CANCEL)
                 self.wait_stable()
                 continue
@@ -293,10 +326,10 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         for _ in self.loop():
             if self.abort_if_buying():
                 return None
-            title = OCR_EXCHANGE_TITLE.ocr(self.device.image)
-            if '备箱' in title:
-                box_name = self.normalize_box_name(title)
-            if '查看详情' in OCR_EXCHANGE_DETAIL.ocr(self.device.image):
+            title = self.ocr_title.ocr(self.device.image)
+            if self.lang.box_keyword in title:
+                box_name = self.lang.normalize_box_name(title)
+            if self.lang.detail_text in self.ocr_detail.ocr(self.device.image):
                 detail = True
                 break
             if timer.reached():
@@ -314,8 +347,8 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         for _ in self.loop():
             if self.abort_if_buying():
                 return None
-            text = OCR_INFO_TITLE.ocr(self.device.image)
-            if '信息' in text or 'INFORMATION' in text.upper():
+            text = self.ocr_info_title.ocr(self.device.image)
+            if self.lang.info_title_texts[0] in text or 'INFORMATION' in text.upper():
                 opened = True
                 break
             if timer.reached():
@@ -343,23 +376,6 @@ class GearSkinScanner(EventShopClerk, ShopUI):
             logger.attr(skin['name'], skin['amount'])
         return {'box': box_name, 'skins': skins, 'slot_count': len(skins),
                 'complete': complete}
-
-    @staticmethod
-    def normalize_box_name(title):
-        """
-        清洗箱名 OCR 结果，只保留「外观装备箱(系列名)」。
-
-        Returns:
-            str: 例 外观装备箱(光暗夜想曲)
-        """
-        text = title.replace(' ', '').strip()
-        matched = re.search(r'备箱[(（]([^)）]*)', text)
-        if matched:
-            return f'外观装备箱({matched.group(1)})'
-        matched = re.search(r'备箱([^)）]*)', text)
-        if matched and len(matched.group(1)) >= 2:
-            return f'外观装备箱({matched.group(1)})'
-        return text
 
     # ------------------------------------------------------------------
     # 信息弹窗采集
@@ -609,15 +625,15 @@ class GearSkinScanner(EventShopClerk, ShopUI):
                 name = self.ocr_name(
                     crop(img, (0, name_band[0] - 2, img.shape[1], name_band[1] + 2))
                 )
-                name = self.clean_name(name)
+                name = self.lang.clean_name(name)
                 amount = self.ocr_amount(
                     crop(img, (0, amount_band[0] - 1, img.shape[1], amount_band[1] + 2))
                 )
-                # 名称必须是纯汉字：外观装备名都是「XX子弹 / XX鱼雷 / XX炮弹 /
-                # XX飞机」这种中文，出现拉丁字母/数字/符号说明这一帧的图像质量
-                # 有问题（实测读出 v幽冥子弹、一纯白晨花子弹，同帧的数字也会
-                # 跟着错成 11 -> 1），整格丢弃，让别的采样点来决定
-                if len(name) < 2 or not self.is_chinese_name(name) or amount is None:
+                # 名称必须是合法汉字（日服额外允许假名）：外观装备名都是
+                # 「XX子弹 / XX鱼雷 / XX炮弹 / XX飞机」这种，出现拉丁字母/数字/
+                # 符号说明这一帧的图像质量有问题（实测读出 v幽冥子弹、G載機，
+                # 同帧的数字也会跟着错成 11 -> 1），整格丢弃，让别的采样点来决定
+                if len(name) < 2 or not self.lang.is_name(name) or amount is None:
                     continue
                 cells.append((amount_y, index, name, amount))
 
@@ -634,14 +650,18 @@ class GearSkinScanner(EventShopClerk, ShopUI):
             rows.append((group[0][0], {cell[1]: (cell[2], cell[3]) for cell in group}))
         return rows
 
-    @staticmethod
-    def apply_plane_variants(slots):
+    def apply_plane_variants(self, slots):
         """
-        同名飞机按固定顺序补后缀：鱼雷 / 战斗 / 轰炸。
+        同名飞机按固定顺序补后缀：鱼雷 / 战斗 / 轰炸（日服 魚雷 / 戦闘 / 爆撃）。
 
-        列表里同名外观装备连续出现 3 次即为三种型号（顺序固定），不能合并成
+        列表里同名的三架飞机连续出现即为三种型号（顺序固定），不能合并成
         一条，否则拥有总数会被算错。注意「星环魔影飞机」的三个槽位是跨行的
         （第 2 行末列 + 第 3 行前两列），所以必须在扁平槽位序列上判断。
+
+        分组方式按服务器区分，见 language.plane_variant_exact_match：
+        国服 OCR 稳定，按名称完全相同分组；日服同一组会读成三个略不同的
+        名字，改为按「连续 3 格都是飞机」分块，块内取字数最多的读法当基准，
+        三格统一成同一个名称（顺带修掉其中一两格的误识）。
 
         Args:
             slots (list[tuple]): [(name, amount), ...]
@@ -649,36 +669,35 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         Returns:
             list[tuple]: [(name, amount), ...]
         """
+        suffixes = self.lang.plane_variant_suffixes
         result = []
         index = 0
         while index < len(slots):
-            end = index
-            while end < len(slots) and slots[end][0] == slots[index][0]:
-                end += 1
-            run = end - index
-            name = slots[index][0]
-            if run == len(PLANE_VARIANT_SUFFIXES) and GearSkinScanner.is_plane(name):
-                # 末字漏识成「…飞」时补回「…飞机」，否则同一栏会出现两种写法
-                if name.endswith('飞'):
-                    name = name + '机'
-                for offset, (_, amount) in enumerate(slots[index:end]):
-                    result.append((name + PLANE_VARIANT_SUFFIXES[offset], amount))
+            if self.lang.plane_variant_exact_match:
+                end = index
+                while end < len(slots) and slots[end][0] == slots[index][0]:
+                    end += 1
             else:
-                result.extend(slots[index:end])
+                end = index
+                while (end < len(slots) and end - index < len(suffixes)
+                       and self.lang.is_plane(slots[end][0])):
+                    end += 1
+                # 不是飞机：原样输出一格再前进，否则 end 不动会死循环
+                if end == index:
+                    result.append(slots[index])
+                    index += 1
+                    continue
+
+            run = slots[index:end]
+            if len(run) == len(suffixes) and self.lang.is_plane(run[0][0]):
+                name = self.lang.repair_plane_name(
+                    max((item[0] for item in run), key=self.lang.name_letters))
+                for offset, (_, amount) in enumerate(run):
+                    result.append((name + suffixes[offset], amount))
+            else:
+                result.extend(run)
             index = end
         return result
-
-    @staticmethod
-    def is_plane(name):
-        """
-        名称是否是飞机类外观装备。
-
-        正常情况下以「机」结尾；OCR 偶发漏掉末字时只剩「…飞」。
-
-        Returns:
-            bool:
-        """
-        return name.endswith('机') or name.endswith('飞')
 
     @staticmethod
     def row_bands(mask):
@@ -729,59 +748,32 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         """
         识别装备名称。
 
-        2x 和 3x 各读一次，只有 3x 的汉字数「严格更多」时才采用 3x：
-        cnocr 对 7 字长名（冰雪幽灵船飞机）在 2x 下容易漏末字，3x 通常能读全；
-        但 3x 偶尔会把整行读成英文乱码（m-i / anal），用汉字数把关即可挡掉。
-        前导标点噪声已由下面的正则清掉，所以「更长」在本函数里等价于「更全」。
+        2x 和 3x 各读一次，先淘汰「带拉丁字母/数字」的读数（那说明这一帧的
+        该格图像质量差，直接采用会污染名称），再在剩下的里取字数多的：
+        cnocr 对 7 字长名（冰雪幽灵船飞机）在 2x 下容易漏末字，3x 通常能读全。
+
+        只按字数取多的会踩坑：2x 常把 艦載機 读成 G載機（字数多、但含拉丁
+        字母），3x 是干净的「…載機」，按字数会选中前者、整格被当噪声丢掉。
+        实测日服最后一行的 燭台の灯火 三个槽位就因此丢了一个。
+
+        日服的「字数」由 language.name_letters 定义为汉字 + 假名，
+        否则 聖中の双羽根弾 这种带「の」的名称比较不出长短。
 
         Returns:
-            str:
+            str: 合法名称；两次读数都不合法时返回空串（交由别的采样点决定）
         """
         best = ''
         for scale in (2, 3):
             text = self.ocr_line(image, INFO_NAME_COLOR, scale=scale).replace(' ', '')
-            # 去掉 OCR 偶尔带出的前导标点（实测「，火焰球子弹」）
-            text = re.sub(r'^[^\u4e00-\u9fa5A-Za-z0-9]+', '', text)
-            if self.chinese_count(text) > self.chinese_count(best):
+            # 去掉 OCR 偶尔带出的前导标点（实测「，火焰球子弹」）。
+            # 不能按「非汉字一律切掉」写：日服有整条名称都是假名的装备
+            # （レイムボール弾 / シルトライデン），按汉字集切会把名称整条删空。
+            text = re.sub(NAME_NOISE_PATTERN, '', text)
+            if not self.lang.is_name(text):
+                continue
+            if self.lang.name_letters(text) > self.lang.name_letters(best):
                 best = text
         return best
-
-    @staticmethod
-    def chinese_count(text):
-        """
-        Returns:
-            int: 字符串里的汉字个数
-        """
-        return sum(1 for char in text if '\u4e00' <= char <= '\u9fa5')
-
-    @classmethod
-    def is_chinese_name(cls, text):
-        """
-        外观装备名是否全是汉字（用来挡掉低质量帧的误识）。
-
-        Returns:
-            bool:
-        """
-        return len(text) >= 2 and cls.chinese_count(text) == len(text)
-
-    @staticmethod
-    def clean_name(name):
-        """
-        用「外观装备名必定以 子弹/鱼雷/炮弹/飞机 结尾」纠正名称。
-
-        cnocr 偶尔会凭空多输一个末字（实测 峭目子弹 -> 峭目子弹一，像素分布
-        证实图上只有 4 个字），这类错误不会被槽位计数发现，只能靠命名后缀
-        回退修正。回退后仍对不上就原样返回，不丢数据。
-
-        Returns:
-            str:
-        """
-        if name.endswith(GEAR_SKIN_SUFFIXES):
-            return name
-        for cut in (1, 2):
-            if len(name) - cut >= 2 and name[:-cut].endswith(GEAR_SKIN_SUFFIXES):
-                return name[:-cut]
-        return name
 
     @staticmethod
     def normalize_digits(text):
@@ -865,7 +857,7 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         self.click_area(INFO_CONFIRM)
         timer = Timer(3, count=6).start()
         for _ in self.loop():
-            if '取消' in OCR_EXCHANGE_CANCEL.ocr(self.device.image):
+            if self.lang.cancel_text in self.ocr_cancel.ocr(self.device.image):
                 break
             if timer.reached():
                 logger.warning('Gear skin: exchange popup not back after closing info')
@@ -877,7 +869,7 @@ class GearSkinScanner(EventShopClerk, ShopUI):
         # 等兑换弹窗真的消失，避免残留弹窗污染下一个箱子的物品扫描
         timer = Timer(3, count=6).start()
         for _ in self.loop():
-            if '取消' not in OCR_EXCHANGE_CANCEL.ocr(self.device.image):
+            if self.lang.cancel_text not in self.ocr_cancel.ocr(self.device.image):
                 break
             if timer.reached():
                 logger.warning('Gear skin: exchange popup still visible')

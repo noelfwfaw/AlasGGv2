@@ -262,17 +262,25 @@ def test_ii_suffix(scanner):
 
 
 def test_gear_skin_source():
-    """导航守卫静态断言：不得用 appear(NAV_EVENT) 判活动商店存在性。"""
+    """
+    导航守卫静态断言：活动商店的「存在性」只能由 NO_NAV_EVENT_CHECK 判定。
+
+    允许 `appear(NAV_EVENT)` 出现——它是点击后「等选中态」的收敛判断；但必须
+    排在 NO_NAV_EVENT_CHECK 之后，写在前面就等于拿选中态颜色判存在，未选中时
+    必然判否，活动商店永远进不去。
+    """
     path = os.path.join(REPO_ROOT, 'module', 'gear_skin', 'gear_skin.py')
     with open(path, 'r', encoding='utf-8') as f:
         src = f.read()
     ok = True
-    if 'appear(NAV_EVENT' in src:
+    gate = src.find('appear(NO_NAV_EVENT_CHECK')
+    if gate < 0:
         ok = False
-        print('    BAD  appear(NAV_EVENT used as existence check')
-    if 'NO_NAV_EVENT_CHECK' not in src:
+        print('    BAD  NO_NAV_EVENT_CHECK not used as existence gate')
+    judge = src.find('appear(NAV_EVENT')
+    if 0 <= judge < gate:
         ok = False
-        print('    BAD  NO_NAV_EVENT_CHECK not used')
+        print('    BAD  appear(NAV_EVENT used before the NO_NAV_EVENT_CHECK gate')
     print('  gear_skin.py 守卫写法 -> %s' % ('ok' if ok else 'bad'))
     return ok
 
