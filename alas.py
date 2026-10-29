@@ -18,6 +18,10 @@ from module.gg_handler.gg_handler import GGHandler
 # 模拟器关闭后再拉起需要十几秒，空档太短时关闭模拟器得不偿失。
 # 只对 Optimization_WhenTaskQueueEmpty = close_emulator 生效，见 get_next_task()
 EMULATOR_CLOSE_MIN_WAIT = 180
+# GG 面板连续打不开的次数上限，达到后进入恢复动作
+GG_CHECK_RETRY = 3
+# 恢复动作（重启游戏 / 重启模拟器）的总次数上限，超过交还人工
+GG_RECOVER_MAX = 3
 
 
 class AzurLaneAutoScript:
@@ -692,6 +696,7 @@ class AzurLaneAutoScript:
         # Try forced task_call restart to reset GG status
         GGHandler(config=self.config, device=self.device).handle_restart_before_tasks()
         check_fail = 0
+        gg_recover = 0
 
         while 1:
             # Check update event from GUI
@@ -735,20 +740,48 @@ class AzurLaneAutoScript:
             try:
                 GGHandler(config=self.config, device=self.device).check_then_set_gg_status(inflection.underscore(task))
                 check_fail = 0
+                gg_recover = 0
             except GameStuckError:
                 del_cached_property(self, 'config')
                 check_fail += 1
-                if check_fail <= 3:
+                if check_fail < GG_CHECK_RETRY:
                     continue
-                else:
-                    logger.critical('Maybe your emulator died, trying to restart it')
-                    handle_notify_throttled(
-                        self.config.Error_OnePushConfig,
-                        key='gg_enable_failed',
-                        title=f"Alas <{self.config_name}> GG error",
-                        content=f"<{self.config_name}> GG status check failed 3 times, restarting emulator",
+
+                # 连续 GG_CHECK_RETRY 次打不开 GG 面板：先判断是「设备没了」还是「游戏没起来」
+                gg_recover += 1
+                if gg_recover > GG_RECOVER_MAX:
+                    logger.critical('GG panel still unreachable after %s recovery attempts' % GG_RECOVER_MAX)
+                    self._error_notify(
+                        f"<{self.config_name}> RequestHumanTakeover\n"
+                        f"GG panel unreachable, recovery attempts exhausted"
                     )
-                    self.device.emulator_start()
+                    raise RequestHumanTakeover
+
+                check_fail = 0
+                handle_notify_throttled(
+                    self.config.Error_OnePushConfig,
+                    key='gg_enable_failed',
+                    title=f"Alas <{self.config_name}> GG error",
+                    content=f"<{self.config_name}> GG status check failed {GG_CHECK_RETRY} times, "
+                            f"recovery {gg_recover}/{GG_RECOVER_MAX}",
+                )
+
+                if self.device.device_alive():
+                    # 设备还在，问题在游戏/GG 面板：重启游戏，不走整机重启
+                    logger.critical('GG panel unreachable while device alive, restarting game')
+                    self.config.task_call('Restart')
+                    del_cached_property(self, 'config')
+                    continue
+
+                logger.critical('Emulator is gone, restarting it')
+                if not self.device.emulator_check(force=True):
+                    self._error_notify(
+                        f"<{self.config_name}> EmulatorRecoveryFailed\n"
+                        f"GG check failed and emulator could not be restarted"
+                    )
+                    raise RequestHumanTakeover
+                del_cached_property(self, 'config')
+                continue
 
             # Run
             logger.info(f'Scheduler: Start task `{task}`')

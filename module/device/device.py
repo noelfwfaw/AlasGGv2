@@ -252,13 +252,17 @@ class Device(Screenshot, Control, AppControl):
             return False
         return in_device_list()
 
-    def emulator_check(self):
+    def emulator_check(self, force=False):
         """
         运行期设备存活检查，必要时拉起模拟器。
 
         调度器每个任务开始前都会调用一次。设备正常时只有一次 adb 探测的开销，
         且不产生 WARNING 及以上日志。模拟器中途掉线时，这里负责把它重新拉起来，
         而不是让整个 ALAS 实例 RequestHumanTakeover 退出。
+
+        Args:
+            force (bool): 设备可能还活着，但状态不可信（句柄指向已经换掉的实例）。
+                跳过存活探测，强制整机重启并刷新句柄。
 
         Returns:
             bool: True 表示设备可用（含刚刚被拉起），False 表示无法恢复
@@ -268,10 +272,13 @@ class Device(Screenshot, Control, AppControl):
         if self.is_over_http or not self.is_emulator:
             return True
 
-        if self.device_alive():
+        if not force and self.device_alive():
             return True
 
-        logger.critical(f'Device {self.serial} is not available, checking emulator')
+        if force:
+            logger.critical(f'Force restarting emulator {self.serial}')
+        else:
+            logger.critical(f'Device {self.serial} is not available, checking emulator')
         # MuMu 重启后 adb 端口可能漂移，重新枚举实例拿最新的 serial
         del_cached_property(self, 'emulator_instance')
         instance = self.emulator_instance
@@ -292,14 +299,21 @@ class Device(Screenshot, Control, AppControl):
             logger.critical('Failed to start emulator')
             return False
 
-        # 旧的 nemu_ipc connect_id 与 adb 连接都指向已经死掉的实例。
-        # adb_reconnect() 里的 detect_device() 会把 serial 修正成 adb 实际认得的那个
+        # 旧的 nemu_ipc connect_id 与 adb 连接都指向已经死掉的实例，交给共用方法统一刷新
+        self._emulator_after_restart()
+        logger.critical('Emulator restarted, device is available now')
+        return True
+
+    def _emulator_after_restart(self):
+        """模拟器整机重启后的状态刷新，emulator_check() 的所有重启路径共用。
+
+        旧的 nemu_ipc connect_id 与 adb 连接都指向已经死掉的实例。
+        adb_reconnect() 里的 detect_device() 会把 serial 修正成 adb 实际认得的那个。
+        """
         self.nemu_ipc_release()
         self.adb_reconnect()
         del_cached_property(self, 'adb')
         del_cached_property(self, 'u2')
-        logger.critical('Emulator restarted, device is available now')
-        return True
 
     def emulator_stop_and_wait(self, timeout=60, deadline=None):
         """
