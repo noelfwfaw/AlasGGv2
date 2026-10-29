@@ -7,11 +7,13 @@ from datetime import datetime
 
 import numpy as np
 
+import module.config.server as server
 from module.base.timer import Timer
 from module.handler.login import LoginHandler
 from module.logger import logger
 from module.ocr.ocr import Ocr
 from module.statistics.item import AmountOcr
+from module.storage.scanner_jp import match_whitelist_jp
 from module.storage.ui import StorageUI
 
 OUTPUT_FOLDER = 'log/storage_scan'
@@ -172,12 +174,42 @@ class MaterialScanner(StorageUI):
 
     def __init__(self, config, device=None, task='StorageScan'):
         super().__init__(config, device, task)
-        self.ocr_name = Ocr([], lang='cnocr', letter=(255, 255, 255), threshold=128, name='SSName')
-        # 第二遍更宽松的阈值，重试第一遍未匹配的格子（OCR 偶发吞字）
-        self.ocr_name_retry = Ocr([], lang='cnocr', letter=(255, 255, 255), threshold=96, name='SSName2')
+        # 日服名条是日文（含假名），国服 cnocr 模型读不出来，换 jp 模型；
+        # 名条字号小、白字带抗锯齿，实测阈值 160 明显比国服的 128 准
+        # （128 会把「メンタル」读成「メン勾ル」、「兵装実験報」读成「験報」）
+        if server.server == 'jp':
+            lang, threshold, retry_threshold = 'jp', 160, 128
+        else:
+            lang, threshold, retry_threshold = 'cnocr', 128, 96
+        self.ocr_name = Ocr([], lang=lang, letter=(255, 255, 255), threshold=threshold, name='SSName')
+        # 第二遍换档阈值，重试第一遍未匹配的格子（OCR 偶发吞字）
+        self.ocr_name_retry = Ocr([], lang=lang, letter=(255, 255, 255), threshold=retry_threshold,
+                                  name='SSName2')
         self.ocr_amount = AmountOcr([], threshold=self.AMOUNT_THRESHOLD, name='SSAmount')
         # 跨页数量共识：(白名单名, 品质) -> {数量: 出现页数}
         self.votes = {}
+
+    @staticmethod
+    def match_name(name, quality, image, x, icon_top):
+        """
+        按服务器选择匹配表。
+
+        国服名条是中文，直接查中文白名单；日服名条是日文且被客户端
+        截断，改走 scanner_jp 的前缀表，再由品质/图标裁决同名多档。
+
+        Args:
+            name (str): 名条 OCR 结果
+            quality (str): 该格品质 'gold'/'purple'/'other'
+            image (np.ndarray): 截图
+            x (int): 格子左上角 x
+            icon_top (int): 图标区顶 y
+
+        Returns:
+            str: 国服白名单名，未匹配返回 None
+        """
+        if server.server == 'jp':
+            return match_whitelist_jp(name, quality, image, x, icon_top)
+        return match_whitelist(name, quality)
 
     def read_amount(self, image, x, icon_top):
         """
@@ -564,12 +596,15 @@ class MaterialScanner(StorageUI):
         found = []
         retry_idx = []
         for i, n in enumerate(names):
-            matched = match_whitelist(n, qualities[i])
+            x, icon_top = cells[i]
+            matched = self.match_name(n, qualities[i], image, x, icon_top)
             if not matched:
                 retry_idx.append(i)
                 continue
-            # cnocr 丢尾部 "II" 时用名条像素判定兜底
-            matched = self._resolve_prefix_name(matched, labels[i])
+            # cnocr 丢尾部 "II" 时用名条像素判定兜底；日服名条上根本没有
+            # "II"（心智单元两档都被截断成「メンタルユ..」），已由图标底色裁决
+            if server.server != 'jp':
+                matched = self._resolve_prefix_name(matched, labels[i])
             if amounts[i] > 0:
                 found.append((matched, qualities[i], amounts[i]))
         # 第二遍宽松阈值重试未命中的格子
@@ -577,10 +612,12 @@ class MaterialScanner(StorageUI):
             retry_labels = [labels[i] for i in retry_idx]
             retry_names = self.ocr_name_retry.ocr(retry_labels, direct_ocr=True)
             for i, n in zip(retry_idx, retry_names):
-                matched = match_whitelist(n, qualities[i])
+                x, icon_top = cells[i]
+                matched = self.match_name(n, qualities[i], image, x, icon_top)
                 if not matched:
                     continue
-                matched = self._resolve_prefix_name(matched, labels[i])
+                if server.server != 'jp':
+                    matched = self._resolve_prefix_name(matched, labels[i])
                 if amounts[i] > 0:
                     found.append((matched, qualities[i], amounts[i]))
         return found
@@ -870,7 +907,10 @@ class MaterialScanner(StorageUI):
             # 自身吞掉所有异常，任何失败都不影响仓库扫描结果与 task_delay。
             # StorageScan 任务没有绑定 EventGeneral 组，getattr 恒返回默认 False，
             # 必须跨组读取；改 task.yaml 会给任务面板塞无关配置
-            if self.config.cross_get(keys='EventGeneral.EventGeneral.GearSkinStatistic', default=False):
+            # 外观装备统计只做过国服：箱名、装备名、界面按钮文案都靠中文名条
+            # 与中文 OCR，日服等其它服务器读不出来，直接跳过而不是空跑一轮
+            if server.server == 'cn' and self.config.cross_get(
+                    keys='EventGeneral.EventGeneral.GearSkinStatistic', default=False):
                 try:
                     from module.gear_skin.gear_skin import GearSkinScanner
                     result = GearSkinScanner(self.config, self.device).run(scan_time=scan_time)
