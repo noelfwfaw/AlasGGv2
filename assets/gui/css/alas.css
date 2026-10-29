@@ -450,8 +450,98 @@ pre.rich-traceback-code {
     flex: 0 1 22rem;
 }
 
-#pywebio-scope-dashboard > #pywebio-scope-dashboard_levels {
-    flex: 0 1 30rem;
+/* Fleet level bar: a standalone row under the dashboard, one card per fleet.
+   Borders and fills use neutral alpha greys so the same rules read correctly
+   on both the light and the dark theme, without duplicating them per theme. */
+#pywebio-scope-ship_levels {
+    width: 100%;
+    font-weight: 400;
+}
+
+.ship-level-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.15rem 0 0.3rem;
+}
+
+.ship-level-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+}
+
+.ship-level-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 0.5rem;
+}
+
+.ship-level-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.45rem 0.6rem 0.5rem;
+    border: 1px solid rgba(128, 128, 128, 0.28);
+    border-radius: 0.55rem;
+    background: rgba(128, 128, 128, 0.06);
+    box-sizing: border-box;
+}
+
+.ship-level-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.15rem 1rem;
+}
+
+.ship-level-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+
+.ship-level-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.ship-level-target {
+    font-size: 0.7rem;
+    opacity: 0.65;
+}
+
+.ship-level-time {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.ship-level-levels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+}
+
+.ship-level-lv {
+    /* border-box so the 6 chips plus gaps always fit one grid column */
+    box-sizing: border-box;
+    min-width: 2.4rem;
+    padding: 0.12rem 0.3rem;
+    border-radius: 0.3rem;
+    background: rgba(128, 128, 128, 0.14);
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.ship-level-lv-empty {
+    opacity: 0.35;
 }
 
 /* Statistics page: each year's month totals and per-month day details share

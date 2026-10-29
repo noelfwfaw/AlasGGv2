@@ -545,6 +545,7 @@ class AlasGUI(Frame):
                     ),
                     put_html('<hr class="hr-group">'),
                     put_scope("dashboard"),
+                    put_scope("ship_levels"),
                 ],
             )
             put_scope("log", [put_html("")])
@@ -1231,50 +1232,97 @@ class AlasGUI(Frame):
         if self._log.first_display:
             self._log.first_display = False
 
-    def _update_ship_levels(self):
-        """Render recorded fleet levels, mainline / event fleets and Operation Siren fleets."""
-        if not self._log.display_dashboard:
-            return
-        try:
-            from module.combat.ship_level import load_levels
-            data = load_levels(self.alas_config.config_name)
-            fleets = sorted(data['fleets'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
-            os_fleets = sorted(data['os'].items(), key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
-            if not fleets and not os_fleets:
-                return
-        except Exception:
-            return
+    def _short_time(self, text):
+        """
+        Shorten a record timestamp, the full form is too wide for a card.
 
-        with use_scope('dashboard_levels', clear=True):
-            put_text(t('Gui.Overview.ShipLevel')).style('font-weight: 700; margin: .3rem 0;')
+        Args:
+            text (str): '2026-10-29 17:31:50'
+
+        Returns:
+            str: '17:31' when it is today, '10-28 17:31' otherwise.
+        """
+        text = str(text or '')
+        try:
+            stamp = datetime.strptime(text, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return text
+        if stamp.date() == datetime.now().date():
+            return stamp.strftime('%H:%M')
+        return stamp.strftime('%m-%d %H:%M')
+
+    def _ship_level_card(self, label, record, target=0):
+        """
+        Build one fleet card.
+
+        Args:
+            label (str): Fleet label, already translated.
+            record (dict): One entry of the record file.
+            target (int): Target level of Operation Siren leveling, 0 if none.
+
+        Returns:
+            str: HTML of the card.
+        """
+        levels = record.get('levels') or []
+        cells = []
+        for index in range(6):
+            level = levels[index] if index < len(levels) else 0
+            if isinstance(level, int) and level > 0:
+                cells.append('<span class="ship-level-lv">%d</span>' % level)
+            else:
+                cells.append('<span class="ship-level-lv ship-level-lv-empty">-</span>')
+
+        name = '<span class="ship-level-name">%s</span>' % html.escape(str(label))
+        if target:
+            name += '<span class="ship-level-target">%s</span>' % html.escape(
+                t('Gui.Overview.ShipLevelTarget', target))
+        # Keep name and target together on the left, the timestamp stays right
+        name = '<span class="ship-level-label">%s</span>' % name
+
+        updated = self._short_time(record.get('updated', ''))
+        time_html = ''
+        if updated:
+            time_html = '<span class="ship-level-time">%s %s</span>' % (
+                html.escape(t('Gui.Overview.ShipLevelUpdated')), html.escape(updated))
+
+        return (
+            '<div class="ship-level-card">'
+            '<div class="ship-level-head">%s%s</div>'
+            '<div class="ship-level-levels">%s</div>'
+            '</div>'
+        ) % (name, time_html, ''.join(cells))
+
+    def _update_ship_levels(self):
+        """Render recorded fleet levels as a standalone bar under the dashboard."""
+        cards = []
+        if self._log.display_dashboard:
+            try:
+                from module.combat.ship_level import load_levels
+                data = load_levels(self.alas_config.config_name)
+                fleets = sorted(data['fleets'].items(),
+                                key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
+                os_fleets = sorted(data['os'].items(),
+                                   key=lambda kv: int(kv[0]) if str(kv[0]).isdigit() else 999)
+            except Exception:
+                fleets, os_fleets = [], []
+
             for key, record in fleets:
-                levels = ' / '.join(str(v) if v else '-' for v in record.get('levels', []))
-                put_row(
-                    content=[
-                        put_text(t('Gui.Overview.ShipLevelFleetLabel', key)).style('--dashboard-help--'),
-                        put_text(levels),
-                        put_text(
-                            f"{t('Gui.Overview.ShipLevelUpdated')} {record.get('updated', '')}"
-                        ).style('--dashboard-help--'),
-                    ],
-                    size='auto 1fr auto',
-                )
+                cards.append(self._ship_level_card(
+                    t('Gui.Overview.ShipLevelFleetLabel', key), record))
             for key, record in os_fleets:
-                levels = ' / '.join(str(v) if v else '-' for v in record.get('levels', []))
-                label = t('Gui.Overview.ShipLevelOSFleetLabel', key)
-                target = record.get('target', 0)
-                if target:
-                    label += ' ' + t('Gui.Overview.ShipLevelTarget', target)
-                put_row(
-                    content=[
-                        put_text(label).style('--dashboard-help--'),
-                        put_text(levels),
-                        put_text(
-                            f"{t('Gui.Overview.ShipLevelUpdated')} {record.get('updated', '')}"
-                        ).style('--dashboard-help--'),
-                    ],
-                    size='auto 1fr auto',
-                )
+                cards.append(self._ship_level_card(
+                    t('Gui.Overview.ShipLevelOSFleetLabel', key), record,
+                    target=record.get('target', 0)))
+
+        with use_scope('ship_levels', clear=True):
+            if not cards:
+                return
+            put_html(
+                '<div class="ship-level-panel">'
+                '<div class="ship-level-title">%s</div>'
+                '<div class="ship-level-cards">%s</div>'
+                '</div>' % (html.escape(t('Gui.Overview.ShipLevel')), ''.join(cards))
+            )
 
     def alas_update_dashboard(self, _clear=False):
         if not self.visible:
@@ -1284,7 +1332,8 @@ class AlasGUI(Frame):
                 self._update_dashboard(num=4, groups_to_display=['Oil', 'Coin', 'Gem', 'Pt'])
             elif self._log.display_dashboard:
                 self._update_dashboard()
-            self._update_ship_levels()
+        # Outside the dashboard scope: the level bar is a standalone row below it
+        self._update_ship_levels()
 
     @use_scope("content", clear=True)
     def alas_daemon_overview(self, task: str) -> None:

@@ -60,8 +60,10 @@
     max-width: none;
 }
 
-#pywebio-scope-dashboard > #pywebio-scope-dashboard_levels {
-    flex: 1 1 100%;
+/* Fleet level bar: one card per column on a phone, the chips keep their
+   desktop size so a 3-digit level never wraps or overflows. */
+#pywebio-scope-ship_levels {
+    width: 100%;
 }
 
 /* Statistics page: narrow screen shows one month detail per row. */
