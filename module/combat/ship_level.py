@@ -116,35 +116,30 @@ def record_ship_level(config, show_index, levels):
             return False
 
         data = load_levels(config.config_name)
-        old = data['fleets'].get(str(fleet_index), {})
-        old_levels = old.get('levels') if isinstance(old.get('levels'), list) else []
-        merged = []
+        read = []
         for i in range(6):
             level = levels[i] if i < len(levels) else 0
-            # 0 means not read this time, >200 is OCR noise, keep the old value then
-            if isinstance(level, int) and 0 < level <= 200:
-                merged.append(level)
-            else:
-                merged.append(old_levels[i] if i < len(old_levels) else 0)
-        if not any(merged):
+            # 0 既可能是空槽位，也可能是这一帧没读到，界面上两者都显示"-"。
+            # 不能拿旧值填：队伍换编成后，被撤掉的船会永远挂在卡片上。
+            # 一帧读糊了几十秒后的下一场战斗就会自己修回来，不需要兜底。
+            read.append(level if isinstance(level, int) and 0 < level <= 200 else 0)
+        if not any(read):
+            # 整帧 6 格全空，大概率是面板没展开 / 被弹窗挡住，保留旧记录
             return False
 
         task = _task_name(config)
-        if merged == old_levels and old.get('task', '') == task:
-            # Called after every battle, avoid meaningless IO
-            return False
-
         data['fleets'][str(fleet_index)] = {
-            'levels': merged,
+            'levels': read,
             'updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'task': task,
             'source': source,
         }
         _write(config.config_name, data)
         return True
-    except Exception as e:
-        # Attached to the combat main flow, must never break a battle
-        logger.warning(f'Ship level record failed: {e}')
+    except (OSError, ValueError, TypeError, KeyError) as e:
+        # 挂在战斗主流程上，任何异常都不能外抛；但要把异常类型打出来，
+        # 否则编程错误（例如 config.task 不是字符串）会变成一句无特征的 warning
+        logger.warning(f'Ship level record failed: {type(e).__name__}: {e}')
         return False
 
 
@@ -193,9 +188,6 @@ def record_os_ship_level(config, fleet_index, ships, target_level=0):
         if not any(merged_levels):
             return False
 
-        if merged_levels == old_levels and merged_exp == old_exp and old.get('target', 0) == target_level:
-            return False
-
         data['os'][str(fleet_index)] = {
             'levels': merged_levels,
             'exp': merged_exp,
@@ -205,6 +197,6 @@ def record_os_ship_level(config, fleet_index, ships, target_level=0):
         }
         _write(config.config_name, data)
         return True
-    except Exception as e:
-        logger.warning(f'Ship level record failed: {e}')
+    except (OSError, ValueError, TypeError, KeyError) as e:
+        logger.warning(f'Ship level record failed: {type(e).__name__}: {e}')
         return False
