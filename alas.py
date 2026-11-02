@@ -135,9 +135,18 @@ class AzurLaneAutoScript:
             self._error_notify(f"<{self.config_name}> ScriptError")
             exit(1)
         except RequestHumanTakeover:
-            logger.critical('Request human takeover')
-            self._error_notify(f"<{self.config_name}> RequestHumanTakeover")
-            exit(1)
+            # 模拟器整个死掉时 device_alive() 为 False，把异常交给 _loop 的恢复块
+            # 重启模拟器并重试任务；设备还活着是需要人工介入的其它原因，维持退出行为。
+            # 探测自身抛异常（如 adb server 挂了）时按设备存活处理，不改退出语义。
+            try:
+                alive = self.device.device_alive()
+            except Exception:
+                alive = True
+            if alive:
+                logger.critical('Request human takeover')
+                self._error_notify(f"<{self.config_name}> RequestHumanTakeover")
+                exit(1)
+            raise
         except Exception as e:
             logger.exception(e)
             self.save_error_log()

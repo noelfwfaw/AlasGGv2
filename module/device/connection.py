@@ -121,6 +121,12 @@ class Connection(ConnectionAttr):
         self.adb_connect(wait_device=False)
         logger.attr('AdbDevice', self.adb)
 
+        # MuMu 的 adb 桥对 offline 设备回答 "already connected"，adb_connect() 会误判成功，
+        # 随后第一次 getprop 必抛 AdbError，且断连重连清不掉 offline 状态。先给 adbd 一段宽限
+        # （模拟器刚启动时常见），10 秒后仍 offline 则抛 EmulatorNotRunningError，交
+        # Device.__init__ 的重启环拉起模拟器——这是不杀公共 adb server 的唯一清法。
+        self._wait_adb_online()
+
         # Package
         self.package = self.config.Emulator_PackageName
         if self.package == 'auto':
@@ -131,6 +137,22 @@ class Connection(ConnectionAttr):
         logger.attr('Server', self.config.SERVER)
 
         self.check_mumu_app_keep_alive()
+
+    def _wait_adb_online(self):
+        """启动路径的 offline 预检。只拦状态为 offline 的设备，其余情况维持上游行为。"""
+        timer = Timer(10).start()
+        warned = False
+        while 1:
+            device = self.list_device().select(serial=self.serial).first_or_none()
+            if device is None or device.status != 'offline':
+                return
+            if not warned:
+                warned = True
+                logger.warning(f'Device {self.serial} is offline, waiting up to 10s for adbd')
+            if timer.reached():
+                logger.critical(f'Device {self.serial} still offline after 10s, ask Device to restart the emulator')
+                raise EmulatorNotRunningError
+            time.sleep(0.5)
 
     @Config.when(DEVICE_OVER_HTTP=False)
     def adb_command(self, cmd, timeout=10):
