@@ -82,7 +82,7 @@ def handle_notify(_config: str, **kwargs) -> bool:
             logger.error("Push notify failed: no response from provider (refused/DNS/timeout), not a config error")
             return False
         if isinstance(resp, Response):
-            if resp.status_code != 200:
+            if not 200 <= resp.status_code < 300:
                 logger.warning("Push notify failed!")
                 logger.warning(f"HTTP Code:{resp.status_code}")
                 return False

@@ -619,6 +619,8 @@ class ConfigUpdater:
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageFriday'),
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSaturday'),
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSunday'),
+        ('IslandProduction.IslandProduction.UseManjuuByDefault',
+         'IslandProduction.IslandProduction.UseWorkerjuuByDefault'),
     ]
 
     # redirection += [
