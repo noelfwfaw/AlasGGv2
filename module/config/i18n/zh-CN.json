@@ -3460,7 +3460,12 @@
       "GearSkinPlaneFighter": "飞机（战斗）",
       "GearSkinPlaneBomber": "飞机（轰炸）",
       "GearSkinIncomplete": "(不完整)",
-      "GearSkinHistory": "统计历史"
+      "GearSkinHistory": "统计历史",
+      "StorageScan": "仓库统计",
+      "LatestScan": "最新扫描",
+      "Amount": "数量",
+      "Change": "较上次",
+      "ScanHistory": "扫描历史"
     },
     "AddAlas": {
       "PopupTitle": "添加新配置",

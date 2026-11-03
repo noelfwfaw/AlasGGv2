@@ -3457,7 +3457,12 @@
       "GearSkinPlaneFighter": "航空機（戦闘）",
       "GearSkinPlaneBomber": "航空機（爆撃）",
       "GearSkinIncomplete": "(不完全)",
-      "GearSkinHistory": "統計履歴"
+      "GearSkinHistory": "統計履歴",
+      "StorageScan": "倉庫統計",
+      "LatestScan": "最新スキャン",
+      "Amount": "所持数",
+      "Change": "前回比",
+      "ScanHistory": "スキャン履歴"
     },
     "AddAlas": {
       "PopupTitle": "新しいコンフィグを追加",

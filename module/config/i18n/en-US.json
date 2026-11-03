@@ -3457,7 +3457,12 @@
       "GearSkinPlaneFighter": "Plane (Fighter)",
       "GearSkinPlaneBomber": "Plane (Bomber)",
       "GearSkinIncomplete": "(incomplete)",
-      "GearSkinHistory": "Statistics History"
+      "GearSkinHistory": "Statistics History",
+      "StorageScan": "Storage Scan",
+      "LatestScan": "Latest Scan",
+      "Amount": "Amount",
+      "Change": "Change",
+      "ScanHistory": "Scan History"
     },
     "AddAlas": {
       "PopupTitle": "Add new config",

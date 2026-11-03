@@ -109,6 +109,11 @@ Statistics:
   GearSkinPlaneBomber:
   GearSkinIncomplete:
   GearSkinHistory:
+  StorageScan:
+  LatestScan:
+  Amount:
+  Change:
+  ScanHistory:
 
 AddAlas:
   PopupTitle:
