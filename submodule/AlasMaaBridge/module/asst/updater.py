@@ -391,6 +391,9 @@ class Updater:
     def _download(self, urls, file, size=0) -> bool:
         """
         依次尝试各镜像下载到 file，全部失败返回 False。
+
+        进度按时间节流（每 5 秒一行，带速度），比按百分比步进更及时：
+        280MB 的包按 10% 步进在慢速链路上要半分钟才出一行日志。
         """
         os.makedirs(os.path.dirname(file), exist_ok=True)
         for url in urls:
@@ -400,25 +403,39 @@ class Updater:
                                    timeout=self.Timeout) as response:
                     response.raise_for_status()
                     total = int(response.headers.get('Content-Length', 0)) or size
+                    if total:
+                        logger.info(f'MAA 安装包大小: {total // 1048576} MB')
                     received = 0
-                    last_report = 0
+                    start = time.time()
+                    last_report = 0.0
                     with open(file, 'wb') as f:
                         for chunk in response.iter_content(chunk_size=1024 * 1024):
                             if not chunk:
                                 continue
                             f.write(chunk)
                             received += len(chunk)
-                            if total:
-                                percent = received * 100 // total
-                                if percent >= last_report + 10:
-                                    last_report = percent // 10 * 10
+                            now = time.time()
+                            if now - last_report >= 5:
+                                last_report = now
+                                elapsed = now - start
+                                speed = received / elapsed / 1048576 if elapsed else 0
+                                if total:
+                                    percent = received * 100 // total
                                     logger.info(
-                                        f'下载中 {last_report}% '
-                                        f'({received // 1048576}/{total // 1048576} MB)')
+                                        f'下载中 {percent}% '
+                                        f'({received // 1048576}/{total // 1048576} MB) '
+                                        f'{speed:.1f} MB/s')
+                                else:
+                                    logger.info(
+                                        f'下载中 {received // 1048576} MB '
+                                        f'{speed:.1f} MB/s')
                 if total and os.path.getsize(file) != total:
                     logger.warning('MAA 安装包大小不一致，换下一个下载源')
                     continue
-                logger.info('MAA 安装包下载完成')
+                elapsed = time.time() - start
+                logger.info(
+                    f'MAA 安装包下载完成，共 {received // 1048576} MB，'
+                    f'耗时 {elapsed:.0f} 秒')
                 return True
             except Exception as e:
                 logger.warning(f'下载失败 {url}: {e}')
