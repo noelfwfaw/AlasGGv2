@@ -2,6 +2,7 @@ from module.logger import logger
 from module.gg_handler.gg_data import GGData
 from module.config.config import deep_get
 from module.base.base import ModuleBase as Base
+import re
 import uiautomator2 as u2
 
 
@@ -187,4 +188,27 @@ class GGU2(Base):
                 return 0
         logger.hr('GG Enabled', level=2)
         self.d.app_stop(self.gg_package_name)
+        self._ensure_game_foreground()
         return 1
+
+    def _ensure_game_foreground(self):
+        """GG 启用收尾确认游戏回前台。GG 流程期间游戏在后台 25~45 秒，返回后可能
+        停在公告/加载屏等未知界面（2026-11-02 实例 E/F 死亡的入口）；这里只负责
+        拉回前台，页面识别交给 run() 的一次性 Restart 兜底，失败只告警不抛。"""
+        package = self.device.package
+        if not package:
+            logger.warning('GG enabled: game package unknown, skip foreground check')
+            return
+        try:
+            output = self.device.adb_shell('dumpsys window | grep -E "mCurrentFocus|mFocusedApp"')
+            # Window{<hash> u0 <包名>/<Activity>}，ActivityRecord 同构；非贪婪防跨行错配
+            match = re.search(r'mCurrentFocus=Window\{[^}]*?\s([^\s/}]+)/', output)
+            if match is None:
+                match = re.search(r'mFocusedApp=.*?ActivityRecord\{[^}]*?\s([^\s/}]+)/', output)
+            foreground = match.group(1) if match else None
+            if foreground == package:
+                return
+            logger.warning(f'After GG enabled, foreground is {foreground}, expected {package}, restarting app')
+            self.d.app_start(package)
+        except Exception as e:
+            logger.warning(f'Ensure game foreground after GG enable failed: {e}')

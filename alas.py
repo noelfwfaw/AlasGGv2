@@ -13,6 +13,7 @@ from module.config.deep import deep_get, deep_set
 from module.exception import *
 from module.logger import logger
 from module.notify import handle_notify, handle_notify_throttled
+from module.gg_handler.gg_data import GGData
 from module.gg_handler.gg_handler import GGHandler
 
 # 模拟器关闭后再拉起需要十几秒，空档太短时关闭模拟器得不偿失。
@@ -35,10 +36,13 @@ class AzurLaneAutoScript:
         # Failure count of tasks
         # Key: str, task name, value: int, failure count
         self.failure_record = {}
-        # Whether the JP-server game restart has been attempted this session.
-        # JP-only recovery for slow game loading; restart at most once per session
-        # so it never enters a restart loop.
-        self._jp_game_restart_attempted = False
+        # Whether the one-shot game restart for unknown ui page has been attempted
+        # this session. Triggers: JP server slow loading, or GG enabled this round.
+        # At most once per session so it never enters a restart loop.
+        self._unknown_page_restart_attempted = False
+        # Whether GG was actually enabled this round, see _loop. Used together with
+        # the flag above: the game may return from GG to an unrecognized screen.
+        self._gg_enabled_round = False
         # Whether an error notify has been sent, so one failure only pushes once
         self._notified = False
 
@@ -112,14 +116,17 @@ class AzurLaneAutoScript:
             logger.info('Game server may be under maintenance or network may be broken, check server status now')
             self.checker.check_now()
             if self.checker.is_available():
-                # JP-only: on slow networks the game may fail to finish loading,
-                # leaving ALAS unable to recognize any page. Restart the game once
-                # per session as a recovery attempt. The flag blocks further restarts,
+                # One-shot game restart per session: on JP servers slow loading may leave
+                # ALAS unable to recognize any page, and the game may also return from a
+                # GG enable to an unrecognized screen. The flag blocks further restarts,
                 # so this never enters a restart loop; if the restart doesn't fix it,
                 # the next GamePageUnknownError falls through to the crash path below.
-                if self.config.SERVER == 'jp' and not self._jp_game_restart_attempted:
-                    self._jp_game_restart_attempted = True
-                    logger.warning('JP server: failed to enter game (unknown ui page), restarting game to retry once')
+                if (self.config.SERVER == 'jp' or self._gg_enabled_round) and not self._unknown_page_restart_attempted:
+                    self._unknown_page_restart_attempted = True
+                    if self._gg_enabled_round:
+                        logger.warning('GG enabled this round: unknown ui page after GG enable, restarting game to retry once')
+                    else:
+                        logger.warning('JP server: failed to enter game (unknown ui page), restarting game to retry once')
                     self.config.task_call('Restart')
                     return False
                 logger.critical('Game page unknown')
@@ -746,8 +753,14 @@ class AzurLaneAutoScript:
 
             # Check GG config before a task begins (to reset temporary config), and decide to enable it.
             GGHandler(config=self.config, device=self.device).check_config()
+            # GG 启用会把游戏切到后台 25~45 秒，收尾只 app_stop(GG)，返回后落在哪个
+            # 界面不可控（2026-11-02 实例 E/F 因此静默死亡）。用启用前后的 gg_on 差分
+            # 记录"本轮真的执行了启用"，供 run() 的 GamePageUnknownError 分支一次性 Restart。
+            gg_on_before = bool(GGData(self.config).get_data().get('gg_on'))
             try:
                 GGHandler(config=self.config, device=self.device).check_then_set_gg_status(inflection.underscore(task))
+                if not gg_on_before and bool(GGData(self.config).get_data().get('gg_on')):
+                    self._gg_enabled_round = True
                 check_fail = 0
                 gg_recover = 0
             except GameStuckError:
@@ -815,6 +828,8 @@ class AzurLaneAutoScript:
                 success = self.run(inflection.underscore(task))
             logger.info(f'Scheduler: End task `{task}`')
             self.is_first_task = False
+            # 一次性 Restart 机会只覆盖 GG 启用后的首个任务，跑完即失效
+            self._gg_enabled_round = False
 
             # Check failures
             failed = deep_get(self.failure_record, keys=task, default=0)
