@@ -28,9 +28,9 @@ WHITELIST = [
     '喵箱SSR型',
 ]
 
-# 同名多品质物品按品质区分研发图档位（display_name 内映射为 UR型/SSR型），
-# 输出名不再加 (金)/(紫) 兜底后缀——白名单中不存在同名异品质物品，
-# 该后缀只会产生非法键（如 心智单元(金)）
+# 同名多品质物品按品质区分研发图档位（display_name 内映射为 UR型/SSR型）。
+# 四类研发图金/紫同名并存，是两个独立物品，各自计票、各输出一条
+# （实测实例 A 舰炮研发图紫 40 / 金 903 并存）
 
 
 def display_name(name, quality):
@@ -823,30 +823,51 @@ class MaterialScanner(StorageUI):
         - 尾缀合并：行位于屏幕边缘或锚点偏移时数量区会被裁掉首位
           （实测 2257 读成 257、2900 读成 900），互为"尾缀"的
           读数把票数并给更长值再计票，治截断
-        - 品质按数量分组：品质偶发翻转（紫/其他 边框色相近）但数量
-          一致的读数合并为一条；quality 只用于 display_name 的档位映射
-        - 每个名称输出恰好一条（同页同名多格已各自计票，取合并后
-          票数最高者；平票取较大值并告警）
+        - 同名按品质分行：金/紫研发图是两个物品（SSR型/UR型），
+          各自独立计票、独立输出一条；不能按名称合并，否则票多的
+          品质会把票少的挤掉（实测紫 40 被金 903 挤掉）
+        - 'other' 是品质误判（边框色相近/反光），只存在一个真实
+          品质时整体并入；金/紫并存时按数量唯一定位归属，定位不到
+          的当噪声丢弃并告警
+        - 每个品质组输出恰好一条：取合并后票数最高者；平票取
+          较大值并告警
 
         Returns:
             dict: {物品名: 数量}
         """
         out = {}
-        # name -> {amount: {quality: count}}
+        # name -> quality -> {amount: count}
         by_name = {}
         for (name, quality), votes in self.votes.items():
             for amount, count in self._merge_amounts(votes).items():
-                quals = by_name.setdefault(name, {}).setdefault(amount, {})
-                quals[quality] = quals.get(quality, 0) + count
-        for name, by_amount in by_name.items():
-            totals = {amount: sum(quals.values())
-                      for amount, quals in by_amount.items()}
-            if len(totals) > 1:
-                logger.warning('StorageScan votes: %s %s', name, totals)
-            # 合并后仍多候选（平票）取较大值；正常应在截断合并时已消解
-            amount = max(totals, key=lambda a: (totals[a], a))
-            quality = max(by_amount[amount].items(), key=lambda kv: kv[1])[0]
-            out[display_name(name, quality)] = amount
+                amounts = by_name.setdefault(name, {}).setdefault(quality, {})
+                amounts[amount] = amounts.get(amount, 0) + count
+        for name, by_quality in by_name.items():
+            other = by_quality.pop('other', None)
+            if other and not by_quality:
+                # 该名称从未读出过金/紫品质：保留兜底行（无档位后缀）
+                by_quality['other'] = self._merge_amounts(other)
+            elif other and len(by_quality) == 1:
+                # 单一真实品质：'other' 是同批格子的品质误判，整体并入
+                (quality, amounts), = by_quality.items()
+                for amount, count in other.items():
+                    amounts[amount] = amounts.get(amount, 0) + count
+                by_quality[quality] = self._merge_amounts(amounts)
+            elif other:
+                for amount, count in other.items():
+                    owners = [q for q, am in by_quality.items() if amount in am]
+                    if len(owners) == 1:
+                        by_quality[owners[0]][amount] += count
+                    else:
+                        logger.warning(
+                            'StorageScan unattributed quality votes: %s %s=%s',
+                            name, amount, count)
+            for quality, amounts in by_quality.items():
+                if len(amounts) > 1:
+                    logger.warning('StorageScan votes: %s %s', name, amounts)
+                # 合并后仍多候选（平票）取较大值；正常应在截断合并时已消解
+                amount = max(amounts, key=lambda a: (amounts[a], a))
+                out[display_name(name, quality)] = amount
         return out
 
     def save_records(self, time: str = None):

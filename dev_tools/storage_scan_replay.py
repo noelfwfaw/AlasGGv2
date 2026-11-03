@@ -205,6 +205,25 @@ def test_records(scanner):
             ok = False
             print('    BAD  illegal quality suffix key %s' % key)
 
+    # 金/紫同名并存：四类研发图是两个独立物品，各输出一条
+    # （实测实例 A 舰炮研发图紫 40 / 金 903 并存，旧行为把紫挤掉）
+    scanner.votes = {
+        ('舰炮研发图', 'purple'): {40: 2},
+        ('舰炮研发图', 'gold'): {902: 3, 2902: 1},
+    }
+    check('get_records(金紫并存)', scanner.get_records(),
+          {'舰炮研发图UR型': 40, '舰炮研发图SSR型': 902})
+
+    # 'other' 是品质误判：单品质时整体并入；金紫并存时按数量
+    # 唯一定位归属，定位不到的丢弃并告警
+    scanner.votes = {
+        ('舰炮研发图', 'purple'): {40: 2},
+        ('舰炮研发图', 'gold'): {902: 3},
+        ('舰炮研发图', 'other'): {902: 1, 777: 1},
+    }
+    check('get_records(other 归组)', scanner.get_records(),
+          {'舰炮研发图UR型': 40, '舰炮研发图SSR型': 902})
+
     # 尾部截断（短值是长值前缀，如 1204 的末位丢失）→ 取长值
     scanner.votes = {('试作型突破', 'purple'): {120: 1, 1204: 2}}
     check('get_records(前缀截断 120/1204)', scanner.get_records(),
