@@ -25,6 +25,8 @@ import subprocess
 import sys
 import tarfile
 import time
+import urllib3
+import warnings
 import zipfile
 from typing import List, Optional, Tuple
 
@@ -33,6 +35,37 @@ import requests
 from module.logger import logger
 
 from .utils import Version
+
+
+def _requests_get(url, **kwargs):
+    """
+    requests.get with a certificate fallback.
+
+    Local accelerators (Watt Toolkit / Steam++ 302 etc.) redirect hosts
+    like github.com via the hosts file and MITM them with a self-signed
+    certificate. That root CA is trusted in the Windows cert store (git
+    works) but not in Python's bundled certifi, so verification fails.
+    The certificate still comes from the user's own trusted accelerator,
+    so retry once without verification on certificate errors.
+
+    Args:
+        url (str): target URL
+        **kwargs: forwarded to requests.get
+
+    Returns:
+        requests.Response
+    """
+    try:
+        return requests.get(url, **kwargs)
+    except requests.exceptions.SSLError as e:
+        if 'certificate verify failed' not in str(e):
+            raise
+        logger.warning(
+            f'HTTPS 证书校验失败（可能为本地加速器劫持），跳过校验重试: {url}')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore',
+                                  urllib3.exceptions.InsecureRequestWarning)
+            return requests.get(url, verify=False, **kwargs)
 
 
 class Updater:
@@ -140,7 +173,7 @@ class Updater:
 
         for i in range(retry):
             try:
-                response = requests.get(
+                response = _requests_get(
                     url, headers=request_headers, stream=stream, timeout=timeout)
                 if response.status_code == 304:
                     return response
@@ -363,8 +396,8 @@ class Updater:
         for url in urls:
             logger.info(f'开始下载 MAA 安装包: {url}')
             try:
-                with requests.get(url, headers=self.Headers, stream=True,
-                                  timeout=self.Timeout) as response:
+                with _requests_get(url, headers=self.Headers, stream=True,
+                                   timeout=self.Timeout) as response:
                     response.raise_for_status()
                     total = int(response.headers.get('Content-Length', 0)) or size
                     received = 0
