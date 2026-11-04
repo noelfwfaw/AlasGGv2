@@ -209,6 +209,10 @@ class GGU2(Base):
             if foreground == package:
                 return
             logger.warning(f'After GG enabled, foreground is {foreground}, expected {package}, restarting app')
+            # app_start 拉起的是全新进程，刚打好的倍率补丁随旧进程内存一起丢失。
+            # 按「游戏重启后 GG 无法沿用」的规则，标记为未启用，
+            # 配合 set() 的后置闸触发重新启用，绝不让任务裸奔。
+            GGData(self.config).set_data(target='gg_on', value=False)
             self.d.app_start(package)
         except Exception as e:
             logger.warning(f'Ensure game foreground after GG enable failed: {e}')

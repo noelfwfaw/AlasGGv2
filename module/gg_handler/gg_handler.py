@@ -48,6 +48,14 @@ from module.config.utils import deep_get, deep_set
 # Maximum attempts of restarting the game before requesting human takeover.
 MAX_RESTART_ATTEMPT = 3
 
+# GG 启用前置闸：等待游戏完全进入的最长总时长（秒）。
+GG_LOAD_TIMEOUT = 600
+# GG 启用前置闸：已知界面上需连续保持稳定的时长（秒）。
+# 日服客户端在登录确认后 30~90 秒内可能回跳标题页（网络抖动），必须等过这个窗口。
+GG_HOLD_SECONDS = 90
+# GG 启用后置闸：确认游戏回到已加载界面的最长等待（秒）。
+GG_VERIFY_SECONDS = 120
+
 
 class GGHandler:
     """
@@ -87,6 +95,93 @@ class GGHandler:
                 raise RequestHumanTakeover(f'Game restart failed after {MAX_RESTART_ATTEMPT} attempts')
             self.device.stuck_record_clear()
 
+    def _ui(self):
+        """构造一个轻量 UI 实例用于页面识别（懒加载避免循环导入）。"""
+        from module.ui.ui import UI
+        return UI(config=self.config, device=self.device)
+
+    def _wait_game_loaded(self):
+        """
+        GG 启用前置闸：游戏必须完全进入并稳定后才允许启动 GG。
+
+        - 游戏未启动：倍率补丁打在旧进程上也活不过随后的启动，按
+          「游戏重启后 GG 必须重新启用、无法沿用」的规则，直接报错走
+          调度循环的恢复（重启游戏）路径，绝不在游戏未运行时启用 GG。
+        - 登录刚确认的 30~90 秒内，日服客户端可能回跳标题页（网络抖动），
+          此时启动 GG 会把倍率打进未就绪/即将重载的内存，倍率丢失 → 裸奔
+          战败（2026-11-04 实例 D 15-1）。这里等待已知界面出现，并要求其
+          连续稳定 GG_HOLD_SECONDS 秒；期间任何弹窗/回跳都会重新观察。
+        - 超时抛 GameStuckError：宁可报错走恢复/停止，也不能裸奔。
+        """
+        from module.exception import (
+            GameNotRunningError,
+            GamePageUnknownError,
+            GameStuckError,
+        )
+        ui = self._ui()
+        deadline = time() + GG_LOAD_TIMEOUT
+        while 1:
+            try:
+                page = ui.ui_get_current_page()
+            except GameNotRunningError:
+                logger.critical('Game not running before GG enable, refuse to enable GG')
+                raise GameStuckError('GameNotRunning before GG enable')
+            except GamePageUnknownError:
+                self.device.stuck_record_clear()
+                if time() > deadline:
+                    logger.critical('Game not fully loaded before GG enable (timeout)')
+                    raise GameStuckError('Game not fully loaded for GG enable')
+                continue
+            if time() > deadline:
+                raise GameStuckError('Game not fully loaded for GG enable')
+            logger.info(f'Game page known ({page.name}), '
+                        f'hold {GG_HOLD_SECONDS}s to confirm game is stable')
+            hold_start = time()
+            broken = False
+            while time() - hold_start < GG_HOLD_SECONDS:
+                self.device.screenshot()
+                self.device.stuck_record_clear()
+                if time() > deadline:
+                    raise GameStuckError('Game not fully loaded for GG enable')
+                if not ui.ui_page_appear(page):
+                    # 弹窗遮挡/回跳标题/界面切换：稳定性被打破，重新观察
+                    broken = True
+                    break
+            if not broken:
+                logger.info('Game fully loaded and stable, continue to enable GG')
+                return
+
+    def _verify_after_enable(self):
+        """
+        GG 启用后置闸：启用流程期间游戏在后台 25~45 秒，若游戏在此期间死亡重启
+        或回跳登录页，倍率补丁必然丢失。这里确认游戏回到已加载界面且未出现登录页；
+        一旦发现登录页或长时间停在未知界面，判定倍率可疑：置 gg_on=False 并抛错，
+        由调度循环的 GameStuckError 恢复路径重新走一次「等待加载 → 启用 GG」。
+        """
+        from module.exception import GamePageUnknownError, GameStuckError
+        from module.handler.assets import LOGIN_CHECK
+        ui = self._ui()
+        deadline = time() + GG_VERIFY_SECONDS
+        while 1:
+            self.device.screenshot()
+            self.device.stuck_record_clear()
+            if ui.appear(LOGIN_CHECK, offset=(30, 30)):
+                logger.warning('Login screen appeared after GG enable, '
+                               'multiplier is lost, need re-enable')
+                GGData(self.config).set_data(target='gg_on', value=False)
+                raise GameStuckError('Game back to login after GG enable')
+            try:
+                page = ui.ui_get_current_page()
+            except GamePageUnknownError:
+                if time() > deadline:
+                    logger.warning('Unknown page after GG enable, '
+                                   'multiplier is uncertain, need re-enable')
+                    GGData(self.config).set_data(target='gg_on', value=False)
+                    raise GameStuckError('Unknown page after GG enable')
+                continue
+            logger.info(f'Game back to known page ({page.name}) after GG enable')
+            return
+
     def set(self, mode=True):
         """
             Set the GG status to True/False.
@@ -96,18 +191,16 @@ class GGHandler:
         gg_package_name = deep_get(self.config.data, keys='GameManager.GGHandler.GGPackageName')
         if mode:
             logger.hr('Enabling GG')
-            # if self.method == 'screenshot' or gg_package_name == 'com.':
-            #     GGScreenshot(config=self.config, device=self.device) \
-            #         .gg_set(mode=True, factor=self.factor)
-            # elif self.method == 'u2':
-            #     GGU2(config=self.config, device=self.device) \
-            #         .set_on(factor=self.factor)
             self.handle_u2_restart()
+            # 前置闸：游戏未完全进入并稳定，绝不启动 GG
+            self._wait_game_loaded()
             success = timeout(GGU2(config=self.config, device=self.device).set_on, timeout_sec=deep_get(self.config.data, "GameManager.GGHandler.Timeout"), factor=self.factor)
             if not success:
                 from module.exception import GameStuckError
                 raise GameStuckError('GG enable timeout')
             logger.info(f'GG enabled, factor={self.factor}')
+            # 后置闸：启用期间游戏在后台，死亡/回跳登录则倍率已丢
+            self._verify_after_enable()
             # Not support screenshot anymore
         else:
             self.gg_reset()
