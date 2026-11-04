@@ -111,13 +111,19 @@ class GGHandler:
           此时启动 GG 会把倍率打进未就绪/即将重载的内存，倍率丢失 → 裸奔
           战败（2026-11-04 实例 D 15-1）。这里等待已知界面出现，并要求其
           连续稳定 GG_HOLD_SECONDS 秒；期间任何弹窗/回跳都会重新观察。
+        - 待机画面（客户端 ~60 秒无操作后进入）本身就是「游戏已完全加载且
+          稳定闲置 60 秒」的证明，视为稳定直接放行，不点击返回（点击会把
+          REWARD_GOTO_MAIN 累积进点击记录，多轮观察后触发
+          GameTooManyClickError，2026-11-04 10:50 实测）。
         - 超时抛 GameStuckError：宁可报错走恢复/停止，也不能裸奔。
         """
         from module.exception import (
             GameNotRunningError,
             GamePageUnknownError,
             GameStuckError,
+            GameTooManyClickError,
         )
+        from module.ui.assets import IDLE
         ui = self._ui()
         deadline = time() + GG_LOAD_TIMEOUT
         while 1:
@@ -126,7 +132,7 @@ class GGHandler:
             except GameNotRunningError:
                 logger.critical('Game not running before GG enable, refuse to enable GG')
                 raise GameStuckError('GameNotRunning before GG enable')
-            except GamePageUnknownError:
+            except (GamePageUnknownError, GameTooManyClickError):
                 self.device.stuck_record_clear()
                 if time() > deadline:
                     logger.critical('Game not fully loaded before GG enable (timeout)')
@@ -144,6 +150,10 @@ class GGHandler:
                 if time() > deadline:
                     raise GameStuckError('Game not fully loaded for GG enable')
                 if not ui.ui_page_appear(page):
+                    if IDLE.match_luma(self.device.image, offset=(5, 5)):
+                        # 待机画面：游戏加载完成后闲置 60 秒的产物，视作稳定证明
+                        logger.info('Idle screen detected, game is fully loaded and stable')
+                        return
                     # 弹窗遮挡/回跳标题/界面切换：稳定性被打破，重新观察
                     broken = True
                     break
@@ -158,7 +168,7 @@ class GGHandler:
         一旦发现登录页或长时间停在未知界面，判定倍率可疑：置 gg_on=False 并抛错，
         由调度循环的 GameStuckError 恢复路径重新走一次「等待加载 → 启用 GG」。
         """
-        from module.exception import GamePageUnknownError, GameStuckError
+        from module.exception import GamePageUnknownError, GameStuckError, GameTooManyClickError
         from module.handler.assets import LOGIN_CHECK
         ui = self._ui()
         deadline = time() + GG_VERIFY_SECONDS
@@ -172,7 +182,7 @@ class GGHandler:
                 raise GameStuckError('Game back to login after GG enable')
             try:
                 page = ui.ui_get_current_page()
-            except GamePageUnknownError:
+            except (GamePageUnknownError, GameTooManyClickError):
                 if time() > deadline:
                     logger.warning('Unknown page after GG enable, '
                                    'multiplier is uncertain, need re-enable')
