@@ -16,6 +16,7 @@ MAA 更新器。
    （约 300MB）并覆盖安装目录。安装目录里 MaaCore.dll 被占用时无法覆盖，
    因此下载后先落盘，在下次启动 Alas（MaaCore 尚未加载）时自动安装。
 """
+import hashlib
 import json
 import os
 import platform
@@ -24,10 +25,12 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import urllib3
 import warnings
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple
 
 import requests
@@ -88,6 +91,19 @@ class Updater:
         'User-Agent': 'AlasMaaBridge/1.0 (AzurLaneAutoScript MAA plugin)'
     }
 
+    # GitHub 直连在国内通常只有几十 KB/s，单个加速源也会被限速在 100 KB/s 量级。
+    # 这里的做法是：先对「直连 + 各加速源」并行测速，选最快的，再用多连接分段拉。
+    # 实测 280MB 包：直连 0.01 MB/s（约 5 小时），单连接加速 0.13 MB/s（约 35 分钟），
+    # 16 连接分段 1.7 MB/s（约 3 分钟）。加速源会失效，所以保留多个并逐个降级。
+    GitHubAccelerators = (
+        'https://gh-proxy.com/',
+        'https://ghfast.top/',
+        'https://ghproxy.net/',
+    )
+    DownloadThreads = 16
+    SegmentBytes = 1024 * 1024
+    ProbeBytes = 256 * 1024
+
     # ------------------------------------------------
     # 基础
     # ------------------------------------------------
@@ -102,6 +118,7 @@ class Updater:
         self.version = version
         self.latest_version = None
         self.latest_detail = None
+        self._digests = {}
 
     def __str__(self):
         return f'<MaaUpdater {self.path}>'
@@ -388,63 +405,294 @@ class Updater:
         logger.warning(f'未找到适用于 {tag} 的 MAA 安装包')
         return [], None, 0
 
+    @staticmethod
+    def _sha256(file) -> str:
+        digest = hashlib.sha256()
+        with open(file, 'rb') as f:
+            for chunk in iter(lambda: f.read(4 * 1024 * 1024), b''):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _github_digest(self, url) -> Optional[str]:
+        """
+        取 GitHub 发布资源的 sha256（GitHub API 的 assets[].digest 字段）。
+
+        走第三方加速下载时，内容来自加速服务而不是 GitHub 本身，必须校验，
+        否则无法排除被投毒或被截断的安装包。取不到就返回 None，由调用方
+        退化成只校验大小。
+        """
+        if url in self._digests:
+            return self._digests[url]
+        digest = None
+        matched = re.match(
+            r'https?://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/', url)
+        name = url.rsplit('/', 1)[-1]
+        if matched:
+            owner, repo, tag = matched.group(1), matched.group(2), matched.group(3)
+            response = self._get(
+                f'https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}',
+                retry=1, timeout=10)
+            if response is not None:
+                try:
+                    assets = response.json().get('assets') or []
+                except ValueError:
+                    assets = []
+                for asset in assets:
+                    if asset.get('name') != name:
+                        continue
+                    value = asset.get('digest') or ''
+                    if value.startswith('sha256:'):
+                        digest = value[len('sha256:'):]
+                    break
+        self._digests[url] = digest
+        return digest
+
+    def _candidate_urls(self, urls) -> List[str]:
+        """在原地址基础上补上各加速源，加速源排在前面（测速后还会重排）。"""
+        candidates = []
+        for url in urls:
+            if 'github.com/' in url or 'githubusercontent.com/' in url:
+                candidates.extend(prefix + url for prefix in self.GitHubAccelerators)
+            candidates.append(url)
+        seen = set()
+        ordered = []
+        for url in candidates:
+            if url not in seen:
+                seen.add(url)
+                ordered.append(url)
+        return ordered
+
+    def _probe(self, url) -> Tuple[float, Optional[bool]]:
+        """
+        拉一小段测试速度。
+
+        Returns:
+            (字节/秒, 是否支持 Range)，连接失败返回 (0.0, None)
+        """
+        headers = dict(self.Headers)
+        headers['Range'] = f'bytes=0-{self.ProbeBytes - 1}'
+        try:
+            with _requests_get(url, headers=headers, stream=True,
+                               timeout=(6, 10)) as response:
+                range_ok = response.status_code == 206
+                received = 0
+                start = time.time()
+                for chunk in response.iter_content(chunk_size=65536):
+                    received += len(chunk)
+                    if received >= self.ProbeBytes:
+                        break
+                elapsed = max(time.time() - start, 0.05)
+                return received / elapsed, range_ok
+        except Exception as e:
+            logger.info(f'测速失败 {url}: {e}')
+            return 0.0, None
+
+    def _rank_sources(self, urls) -> List[Tuple[str, Optional[bool]]]:
+        """
+        并行测速排序，返回 [(url, 是否支持 Range)]，快的在前。
+        """
+        results = {}
+        with ThreadPoolExecutor(max_workers=min(8, len(urls))) as executor:
+            futures = {executor.submit(self._probe, url): url for url in urls}
+            for future in as_completed(futures):
+                url = futures[future]
+                try:
+                    results[url] = future.result()
+                except Exception:
+                    results[url] = (0.0, None)
+
+        ranked = sorted(urls, key=lambda u: results[u][0], reverse=True)
+        for url in ranked[:4]:
+            speed, range_ok = results[url]
+            if speed:
+                logger.info(
+                    f'下载源测速 {url.split("/")[2]} '
+                    f'{speed / 1048576:.2f} MB/s'
+                    f'{"（支持分段）" if range_ok else ""}')
+        # 一个都连不上时保持原顺序，交给下载阶段逐个试
+        if not any(results[url][0] for url in ranked):
+            return [(url, None) for url in urls]
+        return [(url, results[url][1]) for url in ranked]
+
+    def _download_stream(self, url, file, size=0) -> bool:
+        """单连接下载，兼容不支持 Range 的源。"""
+        logger.info(f'改用单连接下载: {url}')
+        try:
+            with _requests_get(url, headers=self.Headers, stream=True,
+                               timeout=self.Timeout) as response:
+                response.raise_for_status()
+                total = int(response.headers.get('Content-Length', 0)) or size
+                if total:
+                    logger.info(f'MAA 安装包大小: {total // 1048576} MB')
+                received = 0
+                start = time.time()
+                last_report = 0.0
+                with open(file, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        received += len(chunk)
+                        now = time.time()
+                        if now - last_report >= 5:
+                            last_report = now
+                            elapsed = now - start
+                            speed = received / elapsed / 1048576 if elapsed else 0
+                            if total:
+                                percent = received * 100 // total
+                                logger.info(
+                                    f'下载中 {percent}% '
+                                    f'({received // 1048576}/{total // 1048576} MB) '
+                                    f'{speed:.1f} MB/s')
+                            else:
+                                logger.info(
+                                    f'下载中 {received // 1048576} MB '
+                                    f'{speed:.1f} MB/s')
+            if total and os.path.getsize(file) != total:
+                logger.warning('MAA 安装包大小不一致，换下一个下载源')
+                return False
+            elapsed = time.time() - start
+            logger.info(
+                f'MAA 安装包下载完成，共 {received // 1048576} MB，'
+                f'耗时 {elapsed:.0f} 秒')
+            return True
+        except Exception as e:
+            logger.warning(f'下载失败 {url}: {e}')
+            return False
+
+    def _download_segments(self, url, file, size) -> bool:
+        """
+        多连接分段下载。每个连接取一段 Range，全部写进同一个文件的不同偏移，
+        按已完成的块数统计进度。加速源普遍按连接限速，多开几条能叠出速度。
+        """
+        blocks = [(start, min(start + self.SegmentBytes, size) - 1)
+                  for start in range(0, size, self.SegmentBytes)]
+        lock = threading.Lock()
+        state = {'next': 0, 'done': 0, 'error': None}
+        start_time = time.time()
+
+        # 预分配，保证各线程 seek 到的位置都是有效偏移
+        with open(file, 'wb') as f:
+            f.truncate(size)
+
+        def worker():
+            while True:
+                with lock:
+                    if state['error'] is not None or state['next'] >= len(blocks):
+                        return
+                    block_start, block_end = blocks[state['next']]
+                    state['next'] += 1
+                length = block_end - block_start + 1
+                for attempt in range(3):
+                    try:
+                        headers = dict(self.Headers)
+                        headers['Range'] = f'bytes={block_start}-{block_end}'
+                        with _requests_get(url, headers=headers, stream=True,
+                                           timeout=self.Timeout) as response:
+                            if response.status_code != 206:
+                                raise RuntimeError(
+                                    f'HTTP {response.status_code} 不支持分段')
+                            position = block_start
+                            with open(file, 'r+b') as f:
+                                for chunk in response.iter_content(chunk_size=65536):
+                                    if not chunk:
+                                        continue
+                                    f.seek(position)
+                                    f.write(chunk)
+                                    position += len(chunk)
+                        if position != block_end + 1:
+                            raise RuntimeError(
+                                f'分片不完整 {position - block_start}/{length}')
+                        with lock:
+                            state['done'] += length
+                        return
+                    except Exception as e:
+                        if attempt == 2:
+                            with lock:
+                                if state['error'] is None:
+                                    state['error'] = str(e)
+                            return
+                        time.sleep(1)
+
+        with ThreadPoolExecutor(max_workers=self.DownloadThreads) as executor:
+            futures = [executor.submit(worker) for _ in range(self.DownloadThreads)]
+            last_report = 0.0
+            while not all(f.done() for f in futures):
+                now = time.time()
+                if now - last_report >= 5:
+                    last_report = now
+                    with lock:
+                        done = state['done']
+                    elapsed = max(now - start_time, 0.1)
+                    logger.info(
+                        f'下载中 {done * 100 // size}% '
+                        f'({done // 1048576}/{size // 1048576} MB) '
+                        f'{done / elapsed / 1048576:.1f} MB/s')
+                time.sleep(0.5)
+
+        if state['error'] is not None:
+            logger.warning(f'分段下载中断，换下一个下载源: {state["error"]}')
+            return False
+        # 预分配过长度，只看文件大小发现不了漏写的分片，必须核对完成字节数
+        if state['done'] != size or os.path.getsize(file) != size:
+            logger.warning(
+                f'分片未全部完成（{state["done"]}/{size}），换下一个下载源')
+            return False
+        logger.info(
+            f'MAA 安装包下载完成，共 {size // 1048576} MB，'
+            f'耗时 {time.time() - start_time:.0f} 秒')
+        return True
+
+    @staticmethod
+    def _remove_file(file):
+        if os.path.exists(file):
+            try:
+                os.remove(file)
+            except OSError:
+                pass
+
     def _download(self, urls, file, size=0) -> bool:
         """
-        依次尝试各镜像下载到 file，全部失败返回 False。
+        依次尝试各下载源，全部失败返回 False。
 
-        进度按时间节流（每 5 秒一行，带速度），比按百分比步进更及时：
-        280MB 的包按 10% 步进在慢速链路上要半分钟才出一行日志。
+        加速源会把内容替换为自己的转发，所以下载完成后按 GitHub API 提供的
+        sha256 校验；取不到 sha256 时退化为只比大小（并提示一次）。
+
+        任何情况下失败都要删除文件：分段下载会预先按总长度占位，留着的话下一轮
+        会被 `check_package_update` 当成「已下载完成」而直接解压。
         """
         os.makedirs(os.path.dirname(file), exist_ok=True)
-        for url in urls:
+        candidates = self._candidate_urls(urls)
+        ranked = self._rank_sources(candidates) if len(candidates) > 1 else \
+            [(url, None) for url in candidates]
+        digest = self._github_digest(urls[-1]) if urls else None
+
+        for url, range_ok in ranked:
+            ok = False
             logger.info(f'开始下载 MAA 安装包: {url}')
-            try:
-                with _requests_get(url, headers=self.Headers, stream=True,
-                                   timeout=self.Timeout) as response:
-                    response.raise_for_status()
-                    total = int(response.headers.get('Content-Length', 0)) or size
-                    if total:
-                        logger.info(f'MAA 安装包大小: {total // 1048576} MB')
-                    received = 0
-                    start = time.time()
-                    last_report = 0.0
-                    with open(file, 'wb') as f:
-                        for chunk in response.iter_content(chunk_size=1024 * 1024):
-                            if not chunk:
-                                continue
-                            f.write(chunk)
-                            received += len(chunk)
-                            now = time.time()
-                            if now - last_report >= 5:
-                                last_report = now
-                                elapsed = now - start
-                                speed = received / elapsed / 1048576 if elapsed else 0
-                                if total:
-                                    percent = received * 100 // total
-                                    logger.info(
-                                        f'下载中 {percent}% '
-                                        f'({received // 1048576}/{total // 1048576} MB) '
-                                        f'{speed:.1f} MB/s')
-                                else:
-                                    logger.info(
-                                        f'下载中 {received // 1048576} MB '
-                                        f'{speed:.1f} MB/s')
-                if total and os.path.getsize(file) != total:
-                    logger.warning('MAA 安装包大小不一致，换下一个下载源')
+            if size and range_ok:
+                ok = self._download_segments(url, file, size)
+            if not ok:
+                ok = self._download_stream(url, file, size)
+            if not ok:
+                self._remove_file(file)
+                continue
+
+            if digest:
+                actual = self._sha256(file)
+                if actual != digest:
+                    logger.warning(
+                        f'MAA 安装包校验失败 {url.split("/")[2]}，'
+                        f'已丢弃并换下一个下载源')
+                    self._remove_file(file)
                     continue
-                elapsed = time.time() - start
-                logger.info(
-                    f'MAA 安装包下载完成，共 {received // 1048576} MB，'
-                    f'耗时 {elapsed:.0f} 秒')
-                return True
-            except Exception as e:
-                logger.warning(f'下载失败 {url}: {e}')
-                if os.path.exists(file):
-                    try:
-                        os.remove(file)
-                    except OSError:
-                        pass
+                logger.info('MAA 安装包 sha256 校验通过')
+            else:
+                logger.info('取不到 GitHub 官方 sha256，仅校验文件大小')
+            return True
+        self._remove_file(file)
         return False
+
 
     def _remove_stale_resource_files(self, package_files) -> int:
         """
