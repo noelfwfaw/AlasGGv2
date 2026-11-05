@@ -52,6 +52,15 @@ MAX_RESTART_ATTEMPT = 3
 # GG 会把游戏压到后台 25~45 秒，这期间游戏可能重载/掉线，倍率补丁随之丢失。
 GG_VERIFY_SECONDS = 45
 
+# GG 启用前置闸：同一个游戏内页面要连续稳定这么久（秒），才算「游戏启动完成」。
+# 单独一帧匹配到 page_main 就放行是不够的——从登录画面点进主界面、或刚打完
+# 一局的那一瞬间都会匹配到，此时启动还没走完。
+GG_GATE_SETTLE_SECONDS = 3
+
+# GG 启用前置闸的最长观察时间（秒）。超时即拒绝，交给调度重启游戏，绝不在
+# 启动过程中硬拉起 GG。正常的加载过渡都在 20 秒内，等不到就没必要再等。
+GG_GATE_TIMEOUT = 30
+
 
 class GGHandler:
     """
@@ -96,35 +105,94 @@ class GGHandler:
         from module.ui.ui import UI
         return UI(config=self.config, device=self.device)
 
+    def _detect_page(self, ui):
+        """只做识别，不点任何东西。
+
+        Returns:
+            Page or None: 认不出时返回 None（登录页、加载页、公告、战斗中…）
+        """
+        from module.ui.page import Page
+        for page in Page.iter_pages():
+            if page.check_button is None:
+                continue
+            if ui.ui_page_appear(page=page):
+                return page
+        return None
+
     def _wait_game_loaded(self):
         """
-        GG 启用前置闸：确认「游戏在跑，且已经进入游戏内页面」。
+        GG 启用前置闸：确认「游戏已经启动完成」，而不是还在启动/登录过程中。
 
-        这里刻意不做「静默 hold N 秒」：日服客户端约 60 秒无操作就进待机画面，
-        任何不短于 60 秒的静默等待都不可能完成——每轮到 60 秒就被待机画面打断，
-        ui_get_current_page 顺手点一次 REWARD_GOTO_MAIN 又回到主界面，于是
-        「hold 90s → 待机 → 点击 → 回主界面 → 再 hold 90s」循环到 600 秒超时，
-        再叠上 12 次点击触发 GameTooManyClickError（2026-11-04 14:12~14:19 实测，
-        三次启用全部这样空转）。
-        真正的危险窗口是「GG 把游戏压到后台的那 25~45 秒里游戏重载/掉线」，
-        那由启用之后的 _verify_after_enable 负责，前置闸管不到那里，也没必要管。
+        绝不能走 ui_get_current_page()：它的 ui_additional() 里有一条
+        `appear_then_click(LOGIN_CHECK)`（module/ui/ui.py:559），也就是说前置闸
+        自己会把标题画面点掉、替游戏把登录走完，然后紧接着拉起 GG。于是形成
+        「ALAS 帮游戏启动 → 立刻 GG → GG 把刚登录的客户端压到后台 20~40 秒 →
+        日服客户端回来又掉回标题 → 倍率丢失 → 重试」的死循环（2026-11-06
+        01:50~01:53 实例 D 连开三次 GG，每次都发生在游戏正在启动的时候）。
+        所以这里只观察、不点击，看到登录页直接拒绝，交给调度走 Restart 重新登录。
+
+        判定标准：同一个游戏内页面连续稳定 GG_GATE_SETTLE_SECONDS 秒。单独一帧
+        匹配到 page_main 就放行是不够的——从登录画面刚点进来的那一瞬间也会匹配。
+
+        待机画面（日服 60 秒无操作会进）仍然要点回主界面，否则永远等不到稳定页面；
+        但点完要重新计时，不能把「待机 → 主界面」当成启动完成。
         """
-        from module.exception import (
-            GameNotRunningError,
-            GamePageUnknownError,
-            GameStuckError,
-            GameTooManyClickError,
-        )
+        from module.exception import GameStuckError
+        from module.handler.assets import LOGIN_CHECK
+
         ui = self._ui()
-        try:
-            page = ui.ui_get_current_page()
-        except GameNotRunningError:
+        logger.info('Waiting for the game to finish loading before enabling GG')
+        if not ui.device.app_is_running():
             logger.critical('Game not running before GG enable, refuse to enable GG')
             raise GameStuckError('GameNotRunning before GG enable')
-        except (GamePageUnknownError, GameTooManyClickError):
-            logger.critical('Game is not in a known page before GG enable')
-            raise GameStuckError('Game not loaded before GG enable')
-        logger.info(f'Game is in {page.name}, continue to enable GG')
+
+        deadline = time() + GG_GATE_TIMEOUT
+        settled_page = None
+        settled_since = None
+        while time() < deadline:
+            ui.device.screenshot()
+            ui.device.stuck_record_clear()
+
+            # 登录页：游戏正在启动/掉线重连。绝不在这里替它点登录。
+            if ui.appear(LOGIN_CHECK, offset=(30, 30)):
+                logger.critical('Game is at the login screen, '
+                                'refuse to enable GG during startup')
+                raise GameStuckError('Game at login before GG enable')
+
+            # 待机画面：点回主界面后重新计时
+            if ui.handle_idle_page():
+                settled_page = None
+                settled_since = None
+                ui.device.sleep(0.5)
+                continue
+
+            page = self._detect_page(ui)
+            if page is None:
+                if settled_page is not None:
+                    logger.info(f'Game left {settled_page.name}, restart counting')
+                settled_page = None
+                settled_since = None
+                ui.device.sleep(0.5)
+                continue
+
+            if settled_page is None or page.name != settled_page.name:
+                if settled_page is not None:
+                    logger.info(f'Game left {settled_page.name}, restart counting')
+                settled_page = page
+                settled_since = time()
+                ui.device.sleep(0.5)
+                continue
+
+            if time() - settled_since >= GG_GATE_SETTLE_SECONDS:
+                logger.info(f'Game is in {page.name} and has been stable for '
+                            f'{GG_GATE_SETTLE_SECONDS}s, continue to enable GG')
+                return
+            # 观察窗口内的节流等待，不是状态循环里的点击等待
+            ui.device.sleep(0.5)
+
+        logger.critical(f'Game did not settle within {GG_GATE_TIMEOUT}s, '
+                        'refuse to enable GG')
+        raise GameStuckError('Game not loaded before GG enable')
 
     def _verify_after_enable(self):
         """
@@ -175,10 +243,11 @@ class GGHandler:
         """
         gg_package_name = deep_get(self.config.data, keys='GameManager.GGHandler.GGPackageName')
         if mode:
-            logger.hr('Enabling GG')
             self.handle_u2_restart()
-            # 前置闸：游戏没跑或没进入游戏内页面，绝不启动 GG
+            # 前置闸：游戏没进入稳定页面就绝不启动 GG。放在横幅之前——被闸拦下的
+            # 这一轮不该在日志里表现成「又启用了一次 GG」。
             self._wait_game_loaded()
+            logger.hr('Enabling GG')
             success = timeout(GGU2(config=self.config, device=self.device).set_on, timeout_sec=deep_get(self.config.data, "GameManager.GGHandler.Timeout"), factor=self.factor)
             if not success:
                 from module.exception import GameStuckError
