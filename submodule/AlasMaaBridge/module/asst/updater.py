@@ -40,6 +40,27 @@ from module.logger import logger
 from .utils import Version
 
 
+# 证书校验失败的域名。本地加速器（Watt Toolkit / Steam++ 302 等）会把
+# github.com 劫持到本机代理并用自签证书，那个根证书在 Windows 证书库里
+# （所以 git 能用），但 Python 自带的 certifi 不认。记住这些域名后，后续
+# 请求直接跳过校验：16 个分段线程各重试一次会刷出几十条同样的警告，还多付
+# 一次失败握手的往返。
+_insecure_hosts = set()
+_insecure_hosts_lock = threading.Lock()
+
+
+def _url_host(url) -> str:
+    return url.split('//', 1)[-1].split('/', 1)[0].lower()
+
+
+def _get_insecure(url, **kwargs):
+    kwargs['verify'] = False
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore',
+                              urllib3.exceptions.InsecureRequestWarning)
+        return requests.get(url, **kwargs)
+
+
 def _requests_get(url, **kwargs):
     """
     requests.get with a certificate fallback.
@@ -49,7 +70,8 @@ def _requests_get(url, **kwargs):
     certificate. That root CA is trusted in the Windows cert store (git
     works) but not in Python's bundled certifi, so verification fails.
     The certificate still comes from the user's own trusted accelerator,
-    so retry once without verification on certificate errors.
+    so retry once without verification on certificate errors, then
+    remember the host so later requests skip verification directly.
 
     Args:
         url (str): target URL
@@ -58,17 +80,24 @@ def _requests_get(url, **kwargs):
     Returns:
         requests.Response
     """
+    host = _url_host(url)
+    with _insecure_hosts_lock:
+        remembered = host in _insecure_hosts
+    if remembered:
+        return _get_insecure(url, **kwargs)
     try:
         return requests.get(url, **kwargs)
     except requests.exceptions.SSLError as e:
         if 'certificate verify failed' not in str(e):
             raise
-        logger.warning(
-            f'HTTPS 证书校验失败（可能为本地加速器劫持），跳过校验重试: {url}')
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore',
-                                  urllib3.exceptions.InsecureRequestWarning)
-            return requests.get(url, verify=False, **kwargs)
+        with _insecure_hosts_lock:
+            first = host not in _insecure_hosts
+            _insecure_hosts.add(host)
+        if first:
+            logger.warning(
+                f'HTTPS 证书校验失败（本地加速器劫持），'
+                f'已对 {host} 跳过校验（后续不再重复提示）')
+        return _get_insecure(url, **kwargs)
 
 
 class Updater:
@@ -95,14 +124,27 @@ class Updater:
     # 这里的做法是：先对「直连 + 各加速源」并行测速，选最快的，再用多连接分段拉。
     # 实测 280MB 包：直连 0.01 MB/s（约 5 小时），单连接加速 0.13 MB/s（约 35 分钟），
     # 16 连接分段 1.7 MB/s（约 3 分钟）。加速源会失效，所以保留多个并逐个降级。
+    # 2026-11-05 8 线程实测（同一时刻）：edgeone 1.33 / hk 1.12 / ghfast 1.09 /
+    # gh-proxy 0.52 / ghproxy.net 0.07 / 直连 0.10 MB/s。
     GitHubAccelerators = (
         'https://gh-proxy.com/',
+        'https://edgeone.gh-proxy.com/',
+        'https://hk.gh-proxy.com/',
         'https://ghfast.top/',
         'https://ghproxy.net/',
     )
     DownloadThreads = 16
     SegmentBytes = 1024 * 1024
     ProbeBytes = 256 * 1024
+    # 分段下载：连续这么久没收到任何新字节就判定该源失速，换下一个源。
+    # 有的源能建连、测速也漂亮，但持续下载一个字节都不给——被本地加速器劫持的
+    # github.com 就是（2026-11-05 实测：测速 0.45 MB/s 排第一，实际 0 字节）。
+    StallSeconds = 15
+    # 分段下载的单连接超时 (建连, 读)。读超时略短于 StallSeconds，
+    # 卡死的线程最多再拖一个读超时就能退出线程池。
+    SegmentTimeout = (10, 12)
+    # 直连只有比最好的加速源快这么多倍，才允许排第一，否则一律最后兜底
+    DirectPreferenceRatio = 3
 
     # ------------------------------------------------
     # 基础
@@ -487,9 +529,21 @@ class Updater:
             logger.info(f'测速失败 {url}: {e}')
             return 0.0, None
 
+    @staticmethod
+    def _is_github_direct(url) -> bool:
+        """是否是 GitHub 直连地址（而不是加速源/官方镜像）。"""
+        host = _url_host(url)
+        return host == 'github.com' or host.endswith('.githubusercontent.com')
+
     def _rank_sources(self, urls) -> List[Tuple[str, Optional[bool]]]:
         """
         并行测速排序，返回 [(url, 是否支持 Range)]，快的在前。
+
+        直连 github.com 的测速值不可信：本地加速器会把它劫持到本机代理，
+        256KB 的探测被本地缓存瞬时喂饱（2026-11-05 实测 0.45 MB/s 排第一，
+        真开 16 连接持续下载 0 字节）。所以直连只有在比最好的加速源快
+        DirectPreferenceRatio 倍以上时才排第一，否则放到最后兜底；加速源
+        全废时它仍然是最后一个候选，不影响直连可用的用户。
         """
         results = {}
         with ThreadPoolExecutor(max_workers=min(8, len(urls))) as executor:
@@ -502,6 +556,14 @@ class Updater:
                     results[url] = (0.0, None)
 
         ranked = sorted(urls, key=lambda u: results[u][0], reverse=True)
+        direct = [url for url in ranked if self._is_github_direct(url)]
+        accelerators = [url for url in ranked if not self._is_github_direct(url)]
+        if accelerators and direct:
+            best_accel = results[accelerators[0]][0]
+            best_direct = results[direct[0]][0]
+            if best_direct < best_accel * self.DirectPreferenceRatio:
+                ranked = accelerators + direct
+                logger.info('直连 GitHub 测速不占优，排到最后兜底')
         for url in ranked[:4]:
             speed, range_ok = results[url]
             if speed:
@@ -563,17 +625,29 @@ class Updater:
     def _download_segments(self, url, file, size) -> bool:
         """
         多连接分段下载。每个连接取一段 Range，全部写进同一个文件的不同偏移，
-        按已完成的块数统计进度。加速源普遍按连接限速，多开几条能叠出速度。
+        按已写入的字节数统计进度。加速源普遍按连接限速，多开几条能叠出速度。
+
+        失速保护：只要连续 StallSeconds 秒没有任何新字节，立刻判定该源不可用并
+        换下一个。有的源能建连、测速也漂亮，但持续下载一个字节都不给（被本地
+        加速器劫持的 github.com 就是），没有这条就会一直挂在 0%。
+
+        限流保护：加速源对并发连接数有限制，撞上会返回 429。单个分片被限流
+        不该让整个 280MB 的下载作废，所以 429/403/503 单独处理：所有线程共享
+        一个退避窗口（2→4→8→15 秒），退避期间不计入失速，退避完重试同一块。
         """
         blocks = [(start, min(start + self.SegmentBytes, size) - 1)
                   for start in range(0, size, self.SegmentBytes)]
         lock = threading.Lock()
-        state = {'next': 0, 'done': 0, 'error': None}
+        state = {'next': 0, 'done': 0, 'bytes': 0, 'error': None,
+                 'cooldown': 0.0, 'penalty': 0.0}
         start_time = time.time()
 
         # 预分配，保证各线程 seek 到的位置都是有效偏移
         with open(file, 'wb') as f:
             f.truncate(size)
+
+        class RateLimited(Exception):
+            pass
 
         def worker():
             while True:
@@ -583,12 +657,24 @@ class Updater:
                     block_start, block_end = blocks[state['next']]
                     state['next'] += 1
                 length = block_end - block_start + 1
-                for attempt in range(3):
+                attempt = 0
+                limited = 0
+                while attempt < 3:
+                    with lock:
+                        if state['error'] is not None:
+                            return
+                        wait = state['cooldown'] - time.time()
+                    if wait > 0:
+                        # 别的线程撞上限流，所有线程一起等，别继续把源打挂
+                        time.sleep(min(wait, self.StallSeconds))
                     try:
                         headers = dict(self.Headers)
                         headers['Range'] = f'bytes={block_start}-{block_end}'
                         with _requests_get(url, headers=headers, stream=True,
-                                           timeout=self.Timeout) as response:
+                                           timeout=self.SegmentTimeout) as response:
+                            if response.status_code in (429, 403, 503):
+                                raise RateLimited(
+                                    f'HTTP {response.status_code} 限流')
                             if response.status_code != 206:
                                 raise RuntimeError(
                                     f'HTTP {response.status_code} 不支持分段')
@@ -600,14 +686,30 @@ class Updater:
                                     f.seek(position)
                                     f.write(chunk)
                                     position += len(chunk)
+                                    with lock:
+                                        state['bytes'] += len(chunk)
                         if position != block_end + 1:
                             raise RuntimeError(
                                 f'分片不完整 {position - block_start}/{length}')
                         with lock:
                             state['done'] += length
-                        return
+                        # 只退出重试循环，继续领下一块：这里若写成 return，
+                        # 每个线程下完一块就退出，16 线程最多只能下 16 块。
+                        break
+                    except RateLimited as e:
+                        limited += 1
+                        if limited > 5:
+                            with lock:
+                                if state['error'] is None:
+                                    state['error'] = f'{e}（重试 5 次仍被限流）'
+                            return
+                        with lock:
+                            state['penalty'] = min(
+                                max(state['penalty'] * 2, 2.0), 15.0)
+                            state['cooldown'] = time.time() + state['penalty']
                     except Exception as e:
-                        if attempt == 2:
+                        attempt += 1
+                        if attempt >= 3:
                             with lock:
                                 if state['error'] is None:
                                     state['error'] = str(e)
@@ -617,17 +719,29 @@ class Updater:
         with ThreadPoolExecutor(max_workers=self.DownloadThreads) as executor:
             futures = [executor.submit(worker) for _ in range(self.DownloadThreads)]
             last_report = 0.0
+            last_bytes = -1
+            last_change = start_time
             while not all(f.done() for f in futures):
                 now = time.time()
+                with lock:
+                    received = state['bytes']
+                    cooling = now < state['cooldown']
+                if received != last_bytes or cooling:
+                    # 退避期间没有新字节是预期行为，不算失速
+                    last_bytes = received
+                    last_change = now
+                elif now - last_change >= self.StallSeconds:
+                    with lock:
+                        if state['error'] is None:
+                            state['error'] = f'{self.StallSeconds} 秒内没有收到任何数据'
+                    break
                 if now - last_report >= 5:
                     last_report = now
-                    with lock:
-                        done = state['done']
                     elapsed = max(now - start_time, 0.1)
                     logger.info(
-                        f'下载中 {done * 100 // size}% '
-                        f'({done // 1048576}/{size // 1048576} MB) '
-                        f'{done / elapsed / 1048576:.1f} MB/s')
+                        f'下载中 {received * 100 // size}% '
+                        f'({received // 1048576}/{size // 1048576} MB) '
+                        f'{received / elapsed / 1048576:.1f} MB/s')
                 time.sleep(0.5)
 
         if state['error'] is not None:
@@ -903,7 +1017,17 @@ class Updater:
             return current, latest
 
         file = os.path.join(self.update_dir, name)
-        if os.path.isfile(file) and size and os.path.getsize(file) == size:
+        reuse = bool(os.path.isfile(file) and size and os.path.getsize(file) == size)
+        if reuse:
+            digest = self._github_digest(urls[-1])
+            if digest and self._sha256(file) != digest:
+                # 分段下载会按总长度预分配，进程中途退出会留下一个长度刚好
+                # 等于目标大小的空壳。只看大小会把它当成「已下载完成」，等到
+                # 解压才报损坏，白丢一轮。有 sha256 时就地校验，不通过直接删。
+                logger.warning('已存在的 MAA 安装包校验不通过，删除后重新下载')
+                self._remove_file(file)
+                reuse = False
+        if reuse:
             logger.info(f'已存在下载好的 MAA 安装包：{name}')
         elif not self._download(urls, file, size):
             logger.warning('MAA 安装包下载失败，本次继续使用当前版本')
