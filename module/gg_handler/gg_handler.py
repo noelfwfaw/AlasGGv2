@@ -396,6 +396,10 @@ class GGHandler:
             'opsi_meowfficer_farming',
             'opsi_hazard1_leveling',
             'opsi_cross_month',
+            # 大世界半自动会实际进入战斗，必须和手动操作时保持同一倍率。
+            # 之前没归类，check_then_set_gg_status() 对它是空操作，GG 状态
+            # 完全取决于上一个任务遗留，容易出现整段裸奔。
+            'opsi_daemon',
             'main',
             'main2',
             'main3',
