@@ -1,4 +1,5 @@
 import ctypes
+import json
 import os
 import re
 import subprocess
@@ -82,6 +83,99 @@ class PlatformWindows(PlatformBase, EmulatorManager):
 
         return count
 
+    @classmethod
+    def _parse_mumu_api_output(cls, stdout: bytes):
+        """
+        Extract the JSON envelope printed by MuMuManager.
+
+        MuMuManager prints one JSON object per call, such as
+        `{"errcode":0,"errmsg":""}`. Older versions may print extra lines
+        before it, so scan from the bottom and keep the first parsable object
+        that carries `errcode`.
+
+        Args:
+            stdout (bytes): Raw standard output of MuMuManager
+
+        Returns:
+            dict | None: Parsed envelope, None if no envelope was found
+        """
+        text = stdout.decode('utf-8', errors='ignore')
+        for line in reversed(text.splitlines()):
+            line = line.strip()
+            if not line.startswith('{') or not line.endswith('}'):
+                continue
+            try:
+                data = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(data, dict) and 'errcode' in data:
+                return data
+        return None
+
+    @classmethod
+    def _mumu_manager_api(cls, console: str, instance_id: int, action: str, timeout: int = 20) -> bool:
+        """
+        Run a MuMuManager api command and check whether MuMu accepted it.
+
+        `execute()` only spawns a process and never looks at its exit code, so a
+        dropped `launch_player` was logged as if it succeeded and ALAS waited
+        180s for nothing. Run the command in the foreground, read its JSON
+        envelope and report failure upward.
+
+        Keeping the command synchronous also serializes it with the previous
+        `shutdown_player`: MuMu starts a temporary API host per call, two hosts
+        launched within a few milliseconds (cold backend) race and the later one
+        can be torn down before it dispatches its action.
+
+        Args:
+            console (str): Path to MuMuManager.exe
+            instance_id (int): MuMu instance index
+            action (str): MuMu api action, such as launch_player
+            timeout (int): Seconds to wait for the command to exit
+
+        Returns:
+            bool: True if MuMu accepted the command
+        """
+        command = [console, 'api', '-v', str(instance_id), action]
+        logger.info(f'Execute: {" ".join(command)}')
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(f'MuMuManager {action} timeout after {timeout}s')
+            return False
+
+        stdout = result.stdout or b''
+        output = stdout.decode('utf-8', errors='ignore').strip()
+        if output:
+            logger.info(f'MuMuManager {action}: {output}')
+
+        data = cls._parse_mumu_api_output(stdout)
+        if data is not None:
+            errcode = data.get('errcode')
+            if errcode == 0:
+                return True
+            errmsg = str(data.get('errmsg', data.get('message', '')))
+            # Stopping an instance that is already stopped is the desired state,
+            # `emulator_start()` always issues a stop before the launch. Match
+            # the message instead of the numeric code, MuMu versions report
+            # different codes for the same condition.
+            if action == 'shutdown_player' and 'player not running' in errmsg:
+                logger.info(f'MuMuPlayer is already stopped: {data}')
+                return True
+            logger.warning(f'MuMuManager {action} failed: {data}')
+            return False
+
+        # Older MuMu versions print nothing or plain key=value lines, fall back
+        # to the exit code instead of treating a missing envelope as failure.
+        if result.returncode != 0:
+            logger.warning(f'MuMuManager {action} failed, returncode {result.returncode}')
+            return False
+        return True
+
     def _emulator_start(self, instance: EmulatorInstance):
         """
         Start a emulator without error handling
@@ -101,7 +195,11 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # and gets silently dropped, while MuMuManager queues requests in backend service.
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
-            self.execute(f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} launch_player')
+                return False
+            if not self._mumu_manager_api(
+                Emulator.single_to_console(exe), instance.MuMuPlayer12_id, 'launch_player'
+            ):
+                return False
         elif instance == Emulator.LDPlayer14 or instance == Emulator.LDPlayer9:
             # ldconsole.exe launch --index 0 --mini
             # LDPlayer above 9 has `--mini` to start as minimized window, `--hide` to start with no frontend window
@@ -161,7 +259,15 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # MuMuManager.exe api -v 1 shutdown_player
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
-            self.execute(f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} shutdown_player')
+                return False
+            # Shutdown stays best-effort: `emulator_stop()` retries by starting
+            # the emulator when a stop reports failure, so a rejected stop must
+            # not abort the close path. Calling the helper synchronously still
+            # serializes the command with the launch that follows, and MuMu's
+            # envelope is logged either way.
+            self._mumu_manager_api(
+                Emulator.single_to_console(exe), instance.MuMuPlayer12_id, 'shutdown_player'
+            )
         elif instance == Emulator.LDPlayerFamily:
             # ldconsole.exe quit --index 0
             self.execute(f'"{Emulator.single_to_console(exe)}" quit --index {instance.LDPlayer_id}')
@@ -195,8 +301,7 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             bool: If success
         """
         try:
-            func(self.emulator_instance)
-            return True
+            result = func(self.emulator_instance)
         except OSError as e:
             msg = str(e)
             # OSError: [WinError 740] 请求的操作需要提升。
@@ -206,6 +311,12 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             logger.error(e)
         except Exception as e:
             logger.exception(e)
+        else:
+            # `_emulator_start()` / `_emulator_stop()` return False when the
+            # command was delivered but rejected (e.g. MuMuManager errcode != 0).
+            # Other branches return None, which still means success.
+            if result is not False:
+                return True
 
         logger.error(f'Emulator function {func.__name__}() failed')
         return False
