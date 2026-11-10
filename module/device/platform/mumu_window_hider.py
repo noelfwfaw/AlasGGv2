@@ -18,6 +18,67 @@ user32 = ctypes.windll.user32
 kernel32.OpenProcess.restype = wintypes.HANDLE
 kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
+# HWND is pointer sized, the default c_int restype truncates it on 64-bit.
+user32.GetForegroundWindow.restype = wintypes.HWND
+user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+user32.SetForegroundWindow.restype = wintypes.BOOL
+user32.BringWindowToTop.argtypes = [wintypes.HWND]
+user32.BringWindowToTop.restype = wintypes.BOOL
+user32.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+user32.AttachThreadInput.restype = wintypes.BOOL
+user32.IsWindow.argtypes = [wintypes.HWND]
+user32.IsWindow.restype = wintypes.BOOL
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.IsWindowVisible.restype = wintypes.BOOL
+user32.PeekMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND,
+                                wintypes.UINT, wintypes.UINT, wintypes.UINT]
+user32.PeekMessageW.restype = wintypes.BOOL
+kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+
+
+def set_foreground_window(hwnd) -> bool:
+    """
+    Bring `hwnd` to the foreground from a background process.
+
+    A plain `SetForegroundWindow` is rejected by the Windows foreground lock
+    when the caller is not the foreground process, which made the "focus back"
+    in `emulator_start_watch()` silently do nothing. Attaching this thread to
+    the current foreground thread first makes the call effective.
+
+    Args:
+        hwnd (int): Window to activate
+
+    Returns:
+        bool: True if `hwnd` became the foreground window
+    """
+    if not hwnd or not user32.IsWindow(hwnd) or not user32.IsWindowVisible(hwnd):
+        return False
+    if user32.GetForegroundWindow() == hwnd:
+        return True
+
+    foreground = user32.GetForegroundWindow()
+    current_thread = kernel32.GetCurrentThreadId()
+    # AttachThreadInput fails when the calling thread has no message queue.
+    # The hider runs on a plain threading.Thread, create the queue first.
+    message = wintypes.MSG()
+    user32.PeekMessageW(ctypes.byref(message), 0, 0, 0, 0)  # PM_NOREMOVE
+    foreground_thread = 0
+    if foreground:
+        foreground_thread = user32.GetWindowThreadProcessId(foreground, None)
+    attached = False
+    if foreground_thread and foreground_thread != current_thread:
+        attached = bool(user32.AttachThreadInput(current_thread, foreground_thread, True))
+    try:
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+    finally:
+        if attached:
+            user32.AttachThreadInput(current_thread, foreground_thread, False)
+
+    return user32.GetForegroundWindow() == hwnd
+
 
 def _get_window_title(hwnd) -> str:
     """Returns the window title, empty if the window has no title."""
@@ -60,6 +121,10 @@ class MuMuWindowHider:
     state is aligned at the moment the hider stops. It is never sent while polling,
     as each call spawns a console process (~0.45s).
 
+    Hiding the window MuMu just activated does not give the caret back to the
+    window the user was typing in, so every hide remembers whether the target was
+    the foreground window and restores the window captured by `start()`.
+
     Showing the window is never done here, that belongs to the user's boss key.
 
     Args:
@@ -98,6 +163,9 @@ class MuMuWindowHider:
         self._stop_event = threading.Event()
         self._thread = None
         self._official_hide_sent = False
+        self._restore_hwnd = 0
+        self._restored_hwnd = 0
+        self._restore_failed_hwnd = 0
 
     def start(self, allow_baseline: bool = True) -> None:
         """Start hiding the window. Repeated calls are safe.
@@ -110,6 +178,11 @@ class MuMuWindowHider:
         """
         if self._thread is not None and self._thread.is_alive():
             return
+        # Foreground window before the emulator is launched. Hiding the window
+        # MuMu activates moves the caret elsewhere, restore it to this one.
+        self._restore_hwnd = user32.GetForegroundWindow()
+        self._restored_hwnd = 0
+        self._restore_failed_hwnd = 0
         self._allow_baseline = allow_baseline
         self._baseline_pids = self._list_baseline_pids() if allow_baseline else set()
         alias_names, info_pids = self._read_instance_info()
@@ -169,7 +242,7 @@ class MuMuWindowHider:
                 # MuMu may show the window again during `starting_vm` /
                 # `starting_rom`, press known windows down before scanning.
                 for hwnd in list(self._hwnds):
-                    user32.ShowWindow(hwnd, SW_HIDE)
+                    self._hide_window(hwnd)
                 self._scan_windows()
             except Exception as e:
                 # Never let this thread die, otherwise the window is sometimes
@@ -201,7 +274,7 @@ class MuMuWindowHider:
         for hwnd, title, pid in self._collect_windows():
             if pid in self._target_pids:
                 self._hwnds.add(hwnd)
-                user32.ShowWindow(hwnd, SW_HIDE)
+                self._hide_window(hwnd)
 
     def _collect_windows(self):
         # Returns a list of (hwnd, title, pid) of visible windows.
@@ -245,8 +318,34 @@ class MuMuWindowHider:
 
     def _hide(self, hwnd, title, method):
         self._hwnds.add(hwnd)
-        user32.ShowWindow(hwnd, SW_HIDE)
+        self._hide_window(hwnd)
         logger.info(f'MuMu window hidden: hwnd={hwnd}, title="{title}", match={method}')
+
+    def _hide_window(self, hwnd):
+        """Hide a window, giving the caret back if it owned the foreground.
+
+        Hiding the just-activated emulator window makes Windows pick another
+        window for the foreground, usually not the text box the user was typing
+        in. Only restore when the window being hidden is the current foreground,
+        so a user who switched to another app mid-startup keeps it.
+        """
+        foreground = user32.GetForegroundWindow()
+        user32.ShowWindow(hwnd, SW_HIDE)
+        if foreground == hwnd and self._restore_hwnd != hwnd:
+            self._restore_foreground()
+
+    def _restore_foreground(self):
+        """Return the foreground to the window captured by `start()`."""
+        hwnd = self._restore_hwnd
+        if not hwnd:
+            return
+        if set_foreground_window(hwnd):
+            if self._restored_hwnd != hwnd:
+                self._restored_hwnd = hwnd
+                logger.info(f'MuMu window hider restored foreground window: {hwnd}')
+        elif self._restore_failed_hwnd != hwnd:
+            self._restore_failed_hwnd = hwnd
+            logger.info(f'MuMu window hider could not restore foreground window: {hwnd}')
 
     def _send_official_hide(self, timeout: float = 10):
         """Send MuMu's own `hide_window` once to keep the boss key state in sync."""

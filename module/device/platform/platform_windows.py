@@ -12,7 +12,7 @@ from module.base.timer import Timer
 from module.device.connection import AdbDeviceWithStatus
 from module.device.platform.platform_base import PlatformBase
 from module.device.platform.emulator_windows import Emulator, EmulatorInstance, EmulatorManager
-from module.device.platform.mumu_window_hider import MuMuWindowHider
+from module.device.platform.mumu_window_hider import MuMuWindowHider, set_foreground_window
 from module.logger import logger
 
 
@@ -25,7 +25,9 @@ def get_focused_window():
 
 
 def set_focus_window(hwnd):
-    ctypes.windll.user32.SetForegroundWindow(hwnd)
+    # A bare SetForegroundWindow from a background process is blocked by the
+    # Windows foreground lock, use the AttachThreadInput variant instead.
+    set_foreground_window(hwnd)
 
 
 def minimize_window(hwnd):
@@ -348,18 +350,22 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                 return instance.serial
         return None
 
-    def emulator_start_watch(self, window_hider=None):
+    def emulator_start_watch(self, window_hider=None, current_window=None):
         """
         Args:
             window_hider (MuMuWindowHider): Keep the window hidden when set,
                 minimize it by default.
+            current_window (int): Foreground window captured before the launch
+                command. Passed in because the emulator may already own the
+                foreground by the time this loop starts.
 
         Returns:
             bool: True if startup completed
                 False if timeout
         """
         logger.hr('Emulator start', level=2)
-        current_window = get_focused_window()
+        if current_window is None:
+            current_window = get_focused_window()
         serial = self.emulator_instance.serial
         logger.info(f'Current window: {current_window}')
 
@@ -534,6 +540,10 @@ class PlatformWindows(PlatformBase, EmulatorManager):
 
     def emulator_start(self):
         logger.hr('Emulator start', level=1)
+        # Capture before the launch command: with synchronous MuMuManager calls
+        # the emulator may already own the foreground when the watch starts, and
+        # "focus back" would then target the emulator window instead of the user.
+        current_window = get_focused_window()
         hider = self._create_window_hider()
         if hider is not None:
             hider.start()
@@ -546,7 +556,7 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                     return False
                 # Start
                 if self._emulator_function_wrapper(self._emulator_start):
-                    if self.emulator_start_watch(window_hider=hider):
+                    if self.emulator_start_watch(window_hider=hider, current_window=current_window):
                         # Success
                         return True
                     else:
