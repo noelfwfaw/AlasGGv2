@@ -459,6 +459,9 @@ class GeneratedConfig:
     OpsiCheckLeveling_LastRun = datetime.datetime(2020, 1, 1, 0, 0)
     OpsiCheckLeveling_DelayAfterFull = False
 
+    # Group `IslandGeneral`
+    IslandGeneral_Season = 'season_20261105_cn'  # season_20260806_cn, season_20261105_cn
+
     # Group `IslandProduction`
     IslandProduction_HardFloorItems = '{}'
     IslandProduction_DailyBufferItems = '{}'
