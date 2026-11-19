@@ -672,6 +672,15 @@ class ConfigUpdater:
         ('IslandProduction.IslandProduction.UseManjuuByDefault',
          'IslandProduction.IslandProduction.UseWorkerjuuByDefault'),
     ]
+    redirection += [
+        (
+            f'IslandBusiness.IslandRestaurant.{restaurant}Waitress{slot}',
+            f'IslandBusiness.IslandRestaurant.{restaurant}Waitress{slot}',
+            island_waitress_redirect,
+        )
+        for restaurant in ('Koi', 'Bear', 'Eatery', 'Grill', 'Cafe')
+        for slot in (1, 2)
+    ]
 
     # redirection += [
     #     (
