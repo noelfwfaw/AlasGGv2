@@ -669,8 +669,10 @@ class ConfigUpdater:
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageFriday'),
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSaturday'),
         ('Hard.Hard.HardStage', 'Hard.Hard.HardStageSunday'),
-        ('IslandProduction.IslandProduction.UseManjuuByDefault',
-         'IslandProduction.IslandProduction.UseWorkerjuuByDefault'),
+        # ('IslandProduction.IslandProduction.UseManjuuByDefault',
+        #  'IslandProduction.IslandProduction.UseWorkerjuuByDefault'),
+        # UseManjuuByDefault never shipped, UseWorkerjuuByDefault is a new key,
+        # so there is nothing to migrate and the redirect stays disabled.
     ]
     redirection += [
         (
