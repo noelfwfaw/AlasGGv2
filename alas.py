@@ -45,6 +45,9 @@ class AzurLaneAutoScript:
         self._gg_enabled_round = False
         # Whether an error notify has been sent, so one failure only pushes once
         self._notified = False
+        # JP only: whether a full emulator restart has already been used for the
+        # current streak of Restart failures. See the tiered recovery in _loop().
+        self._jp_emulator_restart_attempted = False
 
     @cached_property
     def config(self):
@@ -848,6 +851,24 @@ class AzurLaneAutoScript:
             failed = 0 if success else failed + 1
             deep_set(self.failure_record, keys=task, value=failed)
             if failed >= 3:
+                # 日服专属分级恢复：客户端长时间运行后占用累积，可能连登录页都
+                # 进不去，仅重启游戏客户端解决不了。Restart 连续失败 3 次时先
+                # 整机重启模拟器、清空失败计数再给一轮机会；只有重启模拟器后
+                # 仍连续 3 次进不去游戏，才报错推送并交人工。
+                if (self.config.SERVER == 'jp'
+                        and task == 'Restart'
+                        and not self._jp_emulator_restart_attempted):
+                    self._jp_emulator_restart_attempted = True
+                    logger.critical('JP: Restart failed 3 times, force restarting emulator')
+                    if self.device.emulator_check(force=True):
+                        # 整机重启后 GG 进程与倍率补丁一并消失，强制下一轮重新注入
+                        GGData(self.config).set_data(target='gg_on', value=False)
+                        deep_set(self.failure_record, keys=task, value=0)
+                        self.config.task_call('Restart')
+                        del_cached_property(self, 'config')
+                        continue
+                    logger.critical('JP: emulator restart failed, request human takeover')
+
                 logger.critical(f"Task `{task}` failed 3 or more times.")
                 logger.critical("Possible reason #1: You haven't used it correctly. "
                                 "Please read the help text of the options.")
@@ -861,6 +882,9 @@ class AzurLaneAutoScript:
                 exit(1)
 
             if success:
+                # 恢复成功后解除整机重启闸，长时间运行下次再卡死仍可再次自救
+                if task == 'Restart' and self.config.SERVER == 'jp':
+                    self._jp_emulator_restart_attempted = False
                 del_cached_property(self, 'config')
                 continue
             elif self.config.Error_HandleError:
