@@ -39,6 +39,14 @@ class GameStuckError(Exception):
     pass
 
 
+class GGNotReadyError(GameStuckError):
+    # Game is not ready around GG enable (at login screen / not fully loaded /
+    # process died), usually caused by JP server network jitter. This is NOT a
+    # real GG injection failure, so it is handled as a game restart instead of
+    # being accumulated into the GG recovery count.
+    pass
+
+
 class GameBugError(Exception):
     # An error has occurred in Azur Lane game client. Alas is unable to handle.
     # A restart should fix it.

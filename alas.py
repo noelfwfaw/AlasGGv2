@@ -763,6 +763,18 @@ class AzurLaneAutoScript:
                     self._gg_enabled_round = True
                 check_fail = 0
                 gg_recover = 0
+            except GGNotReadyError:
+                # 游戏在 GG 启用前后未就绪（登录页/未加载/进程消失），多为日服
+                # 网络抖动，不是真正的 GG 注入失败。按网络恢复处理：重启游戏
+                # 重新登录，不累计 GG recovery，避免网络问题被误判成 GG 故障。
+                del_cached_property(self, 'config')
+                logger.warning('Game not ready around GG enable (network/loading), '
+                               'restart game to recover, do not count as GG failure')
+                self.config.task_call('Restart')
+                del_cached_property(self, 'config')
+                check_fail = 0
+                gg_recover = 0
+                continue
             except GameStuckError:
                 del_cached_property(self, 'config')
                 check_fail += 1

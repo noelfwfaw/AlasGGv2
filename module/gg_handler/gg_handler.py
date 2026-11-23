@@ -58,8 +58,9 @@ GG_VERIFY_SECONDS = 45
 GG_GATE_SETTLE_SECONDS = 3
 
 # GG 启用前置闸的最长观察时间（秒）。超时即拒绝，交给调度重启游戏，绝不在
-# 启动过程中硬拉起 GG。正常的加载过渡都在 20 秒内，等不到就没必要再等。
-GG_GATE_TIMEOUT = 30
+# 启动过程中硬拉起 GG。日服网络抖动时登录/加载过渡常超过 30 秒，放宽到
+# 60 秒容纳；超时后走网络恢复路径，不记为 GG 失败。
+GG_GATE_TIMEOUT = 60
 
 
 class GGHandler:
@@ -137,14 +138,14 @@ class GGHandler:
         待机画面（日服 60 秒无操作会进）仍然要点回主界面，否则永远等不到稳定页面；
         但点完要重新计时，不能把「待机 → 主界面」当成启动完成。
         """
-        from module.exception import GameStuckError
+        from module.exception import GGNotReadyError
         from module.handler.assets import LOGIN_CHECK
 
         ui = self._ui()
         logger.info('Waiting for the game to finish loading before enabling GG')
         if not ui.device.app_is_running():
             logger.critical('Game not running before GG enable, refuse to enable GG')
-            raise GameStuckError('GameNotRunning before GG enable')
+            raise GGNotReadyError('GameNotRunning before GG enable')
 
         deadline = time() + GG_GATE_TIMEOUT
         settled_page = None
@@ -157,7 +158,7 @@ class GGHandler:
             if ui.appear(LOGIN_CHECK, offset=(30, 30)):
                 logger.critical('Game is at the login screen, '
                                 'refuse to enable GG during startup')
-                raise GameStuckError('Game at login before GG enable')
+                raise GGNotReadyError('Game at login before GG enable')
 
             # 待机画面：点回主界面后重新计时
             if ui.handle_idle_page():
@@ -192,7 +193,7 @@ class GGHandler:
 
         logger.critical(f'Game did not settle within {GG_GATE_TIMEOUT}s, '
                         'refuse to enable GG')
-        raise GameStuckError('Game not loaded before GG enable')
+        raise GGNotReadyError('Game not loaded before GG enable')
 
     def _verify_after_enable(self):
         """
@@ -208,7 +209,7 @@ class GGHandler:
         重置计时——待机画面、弹窗、界面切换都不改变「游戏还活着」这个事实，
         只有登录页/进程消失才说明倍率随内存丢了。
         """
-        from module.exception import GameStuckError
+        from module.exception import GGNotReadyError
         from module.handler.assets import LOGIN_CHECK
         ui = self._ui()
         logger.info(f'Verifying GG for {GG_VERIFY_SECONDS}s')
@@ -220,7 +221,7 @@ class GGHandler:
                 logger.warning('Login screen appeared after GG enable, '
                                'multiplier is lost, need re-enable')
                 GGData(self.config).set_data(target='gg_on', value=False)
-                raise GameStuckError('Game back to login after GG enable')
+                raise GGNotReadyError('Game back to login after GG enable')
             try:
                 running = self.device.app_is_running()
             except Exception as e:
@@ -230,7 +231,7 @@ class GGHandler:
                 logger.warning('Game is gone after GG enable, '
                                'multiplier is lost, need re-enable')
                 GGData(self.config).set_data(target='gg_on', value=False)
-                raise GameStuckError('Game died after GG enable')
+                raise GGNotReadyError('Game died after GG enable')
             # 固定观察窗口内的节流等待，不是状态循环里的点击等待
             self.device.sleep(1)
         logger.info(f'GG verified, game is alive after {GG_VERIFY_SECONDS}s')
